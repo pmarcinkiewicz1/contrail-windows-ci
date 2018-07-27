@@ -54,16 +54,16 @@ Describe "Single compute node protocol tests with utils" {
         }
     }
 
-    It "Ping between containers succeeds" {
+    It "LARGE Ping between containers succeeds" {
         Invoke-Command -Session $Session -ScriptBlock {
             $Container2IP = $Using:Container2NetInfo.IPAddress
             docker exec $Using:Container1ID powershell "ping $Container2IP > null 2>&1; `$LASTEXITCODE;"
-        } | Should Be 0
+        } | Should Be 0 # Small packet
 
         Invoke-Command -Session $Session -ScriptBlock {
             $Container1IP = $Using:Container1NetInfo.IPAddress
-            docker exec $Using:Container2ID powershell "ping $Container1IP > null 2>&1; `$LASTEXITCODE;"
-        } | Should Be 0
+            docker exec $Using:Container2ID powershell "ping $Container1IP -l 3500 > null 2>&1; `$LASTEXITCODE;"
+        } | Should Be 0 # Big packet (fragmentation)
     }
 
     It "TCP connection works" {
