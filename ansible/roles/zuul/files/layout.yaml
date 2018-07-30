@@ -16,6 +16,7 @@ pipelines:
             - ^contrail/queens$
             - ^contrail_dpdk_17_02$
             - ^contrail_dpdk_17_11$
+            - ^contrail_dpdk_17_11_3$
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
@@ -26,6 +27,7 @@ pipelines:
             - ^contrail/queens$
             - ^contrail_dpdk_17_02$
             - ^contrail_dpdk_17_11$
+            - ^contrail_dpdk_17_11_3$
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
@@ -36,6 +38,7 @@ pipelines:
             - ^contrail/queens$
             - ^contrail_dpdk_17_02$
             - ^contrail_dpdk_17_11$
+            - ^contrail_dpdk_17_11_3$
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
