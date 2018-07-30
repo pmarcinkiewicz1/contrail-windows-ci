@@ -6,3 +6,4 @@ SIGNTASK : SignTool error : No certificates were found that met all the given cr
 \[[[:digit:]]+-controller\]: FAILED.*Failed to connect to yum.dockerproject.org at port 443
 ERROR:zuul\.Repo:Unable to initialize repo for https://review\.opencontrail\.org/Juniper/[a-z-]+\s*$
 Get https://registry-1\.docker\.io/v2/:.*getsockopt: no route to host
+InvalidRunspaceStateException:.* The session state is Broken.$
