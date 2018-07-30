@@ -22,6 +22,10 @@ Describe 'Backup-Infrastructure' -Tags CI, Unit {
         $backupRepository = "TestDrive:\Backups\"
         New-Item -ItemType Directory -Path $backupRepository
 
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+            "PSUseDeclaredVarsMoreThanAssignments", "vmSpecList",
+            Justification="Analyzer doesn't understand relation of Pester blocks"
+        )]
         $vmSpecList = @(
             [VMSpec]@{Name = "vm1"},
             [VMSpec]@{Name = "vm2"}
