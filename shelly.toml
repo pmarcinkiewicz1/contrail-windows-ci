@@ -1,0 +1,10 @@
+[levels]
+# Insert custom lint levels here
+
+[extras]
+cmdlets = [
+    "Connect-VBRServer",
+    "Disconnect-VBRServer",
+    "Start-VBRZip",
+    "Find-VBRViEntity",
+]

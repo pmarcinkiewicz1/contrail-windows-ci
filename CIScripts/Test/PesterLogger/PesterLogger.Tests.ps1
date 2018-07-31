@@ -75,12 +75,12 @@ Describe "PesterLogger" -Tags CI, Unit {
             Test-Path "TestDrive:\PesterLogger.Write-Log.writes to correct file.txt" | Should -Be $true
         }
 
-        It "errors if test name contains : " {
+        It "errors if test name contains : " { # shelly: allow invalid-testname-characters
             Initialize-PesterLogger -OutDir "TestDrive:\"
             { Write-Log "msg1" } | Should -Throw
         }
 
-        It "errors if test name contains / " {
+        It "errors if test name contains / " { # shelly: allow invalid-testname-characters
             Initialize-PesterLogger -OutDir "TestDrive:\"
             { Write-Log "msg1" } | Should -Throw
         }

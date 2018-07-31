@@ -95,7 +95,7 @@ function Register-NewFunc {
 function Write-Log {
     if (Get-Item function:Write-LogImpl -ErrorAction SilentlyContinue) {
         # This function is injected into scope by Initialize-PesterLogger
-        Write-LogImpl @Args # Analyzer: Allow Write-LogImpl
+        Write-LogImpl @Args # Analyzer: Allow unknown-functions(Write-LogImpl)
     } else {
         Write-Host @Args
     }
