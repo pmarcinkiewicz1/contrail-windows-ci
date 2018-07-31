@@ -249,9 +249,9 @@ pipeline {
         LOG_SERVER_USER = "zuul-win"
         LOG_SERVER_FOLDER = "winci"
         LOG_ROOT_DIR = "/var/www/logs"
-        MYSQL = credentials('monitoring-mysql')
-        MYSQL_HOST = "10.84.12.52"
-        MYSQL_DATABASE = "monitoring_test"
+        MYSQL = credentials('winstats-mysql')
+        MYSQL_HOST = "148.251.5.92"
+        MYSQL_DATABASE = "monitoring"
     }
 
     post {
