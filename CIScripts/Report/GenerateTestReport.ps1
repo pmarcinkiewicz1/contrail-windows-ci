@@ -20,7 +20,7 @@ function Convert-TestReportsToHtml {
     Move-Item "$FixedReportsDir/*.html" $PrettyDir
 
     $GeneratedHTMLFiles = Get-ChildItem $PrettyDir -File
-    
+
     if (-not (Test-IndexHtmlExists -Files $GeneratedHTMLFiles)) {
         Repair-LackOfIndexHtml -Files $GeneratedHTMLFiles
     }

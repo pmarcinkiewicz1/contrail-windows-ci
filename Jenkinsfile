@@ -26,6 +26,7 @@ pipeline {
                 stash name: "Ansible", includes: "ansible/**"
                 stash name: "Monitoring", includes: "monitoring/**"
                 stash name: "Flakes", includes: "flakes/**"
+                stash name: "Utility", includes: "utility/**"
             }
         }
 
@@ -138,7 +139,7 @@ pipeline {
                     }
                     post {
                         always {
-                            stash name: "sconsTestsLogs", allowEmpty: true, includes: "SconsTestsLogs/**"
+                            stash name: "unitTestsLogs", allowEmpty: true, includes: "unittests-logs/**"
                             deleteDir()
                         }
                     }
@@ -237,12 +238,12 @@ pipeline {
 
                             stash name: 'detailedLogs', includes:
                             'WindowsCompute/detailed_logs/**', allowEmpty: true
-                            }
                         }
                     }
                 }
             }
         }
+    }
 
     environment {
         LOG_SERVER = "logs.opencontrail.org"
@@ -279,6 +280,9 @@ pipeline {
             node('master') {
                 script {
                     deleteDir()
+
+                    unstash 'Utility'
+
                     def relLogsDstDir = logsRelPathBasedOnTriggerSource(env.JOB_NAME,
                         env.BUILD_NUMBER, env.ZUUL_UUID)
 
@@ -286,11 +290,17 @@ pipeline {
 
                     dir('to_publish') {
                         unstash 'processedTestReports'
+                        // NOTE: We have to preserve two index files, because:
+                        //       - `Index.html` is referenced in other html files
+                        //       - `index.html` can be loaded by default when entering `pretty_test_report`
+                        shellCommand('/bin/bash', ['../utility/fix-test-report-index-files.sh',
+                                                   './TestReports'])
+
                         dir('TestReports') {
                             tryUnstash('ddriverJUnitLogs')
                             tryUnstash('detailedLogs')
-                            tryUnstash('sconsTestsLogs')
                         }
+                        tryUnstash('unitTestsLogs')
 
                         createCompressedLogFile(env.JOB_NAME, env.BUILD_NUMBER, logFilename)
 

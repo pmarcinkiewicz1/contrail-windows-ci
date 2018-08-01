@@ -89,7 +89,7 @@ function Invoke-ReportGenTests {
         AfterAll {
             Clear-TemporaryDirs -Dirs @($InputDir, $OutputDir)
         }
-        
+
         It "creates appropriate subdirectories" {
             Join-Path $OutputDir "raw_NUnit" | Should Exist
             Join-Path $OutputDir "pretty_test_report" | Should Exist

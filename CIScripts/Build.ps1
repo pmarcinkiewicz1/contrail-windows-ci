@@ -19,7 +19,7 @@ $vtestOutputDir = "output/vtest"
 $AgentOutputDir = "output/agent"
 $DllsOutputDir = "output/dlls"
 $LogsDir = "logs"
-$SconsTestsLogsDir = "SconsTestsLogs"
+$SconsTestsLogsDir = "unittests-logs"
 
 $Directories = @(
     $DockerDriverOutputDir,
@@ -80,8 +80,11 @@ try {
         Copy-DebugDlls -OutputPath $DllsOutputDir
     }
 } finally {
-    Copy-Item -Path ".\build\$BuildMode" -Destination $SconsTestsLogsDir `
-        -Recurse -Filter "*.exe.log" -Container
+    $testDirs = Get-ChildItem ".\build\$BuildMode" -Directory
+    foreach ($d in $testDirs) {
+        Copy-Item -Path $d.FullName -Destination $SconsTestsLogsDir `
+            -Recurse -Filter "*.exe.log" -Container
+    }
 }
 
 $Job.Done()
