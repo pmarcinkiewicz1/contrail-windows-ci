@@ -251,7 +251,7 @@ pipeline {
         LOG_SERVER_FOLDER = "winci"
         LOG_ROOT_DIR = "/var/www/logs"
         MYSQL = credentials('winstats-mysql')
-        MYSQL_HOST = "148.251.5.92"
+        MYSQL_HOST = "winci-winstats"
         MYSQL_DATABASE = "monitoring"
     }
 
