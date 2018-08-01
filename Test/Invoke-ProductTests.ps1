@@ -1,14 +1,10 @@
 Param(
-    [Parameter(Mandatory = $true)] [string] $TestRootDir,
+    [Parameter(Mandatory = $false)] [string] $TestRootDir = ".",
     [Parameter(Mandatory = $true)] [string] $TestReportDir,
     [Parameter(Mandatory = $true)] [string] $TestenvConfFile
 )
 
-. $PSScriptRoot\Common\Init.ps1
-. $PSScriptRoot\Common\Job.ps1
-. $PSScriptRoot\..\Test\TestRunner.ps1
-
-$Job = [Job]::new("Test")
+. $PSScriptRoot\TestRunner.ps1
 
 if (-not (Test-Path $TestReportDir)) {
     New-Item -ItemType Directory -Path $TestReportDir | Out-Null
@@ -26,5 +22,3 @@ Invoke-IntegrationAndFunctionalTests `
     -PesterOutReportPath $PesterOutReportPath `
     -DetailedLogsOutputDir $DetailedLogsDir `
     -AdditionalJUnitsDir $DDriverJUnitLogsOutputDir
-
-$Job.Done()

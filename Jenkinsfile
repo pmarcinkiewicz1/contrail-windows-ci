@@ -26,6 +26,7 @@ pipeline {
                 stash name: "Ansible", includes: "ansible/**"
                 stash name: "Monitoring", includes: "monitoring/**"
                 stash name: "Flakes", includes: "flakes/**"
+                stash name: "Test", includes: "Test/**"
                 stash name: "Utility", includes: "utility/**"
             }
         }
@@ -52,6 +53,7 @@ pipeline {
                         deleteDir()
                         unstash "Backups"
                         unstash "CIScripts"
+                        unstash "Test"
                         unstash "CISelfcheck"
                         script {
                             try {
@@ -93,6 +95,7 @@ pipeline {
                         unstash "StaticAnalysis"
                         unstash "SourceCode"
                         unstash "CIScripts"
+                        unstash "Test"
                         unstash "Backups"
                         powershell script: "./StaticAnalysis/Invoke-StaticAnalysisTools.ps1 -RootDir . -Config ${pwd()}/StaticAnalysis"
                     }
@@ -224,9 +227,11 @@ pipeline {
                 deleteDir()
                 unstash 'CIScripts'
                 unstash 'TestenvConf'
+                unstash 'Test'
                 script {
                     try {
                         powershell script: """./CIScripts/Test.ps1 `
+                            -TestRootDir Test `
                             -TestenvConfFile testenv-conf.yaml `
                             -TestReportDir ${env.WORKSPACE}/testReportsRaw/WindowsCompute"""
                     } finally {
@@ -234,10 +239,10 @@ pipeline {
 
                         dir('testReportsRaw') {
                             stash name: 'ddriverJUnitLogs', includes:
-                            'WindowsCompute/ddriver_junit_test_logs/**', allowEmpty: true
+                                'WindowsCompute/ddriver_junit_test_logs/**', allowEmpty: true
 
                             stash name: 'detailedLogs', includes:
-                            'WindowsCompute/detailed_logs/**', allowEmpty: true
+                                'WindowsCompute/detailed_logs/**', allowEmpty: true
                         }
                     }
                 }
