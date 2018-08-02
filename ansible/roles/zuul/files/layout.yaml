@@ -20,6 +20,7 @@ pipelines:
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
+            - ^stable/queens$
         - event: change-restored
           branch:
             - ^master$
@@ -31,6 +32,7 @@ pipelines:
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
+            - ^stable/queens$
         - event: comment-added
           branch:
             - ^master$
@@ -42,6 +44,7 @@ pipelines:
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
+            - ^stable/queens$
           comment: (?i)recheck(( (?:bug|lp)[\s#:]*(\d+))|( no bug))?(\s+clean)?\s*$
         - event: comment-added
           comment: (?i)recheck windows$
