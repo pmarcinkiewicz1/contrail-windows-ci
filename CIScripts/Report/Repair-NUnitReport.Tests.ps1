@@ -265,11 +265,39 @@ Describe "Repair-NUnitReport" -Tags CI, Unit {
     </test-suite>
 </test-results>
 "@
-
             $ActualOutput = Repair-NUnitReport -InputData $TestData
             NormalizeXmlString $ActualOutput | Should BeExactly $ExpectedOutput
         }
 
+        It "recalculates root node attributes like total, errors, failures etc" {
+            
+            $TestData = NormalizeXmlString -InputData @"
+<?xml version="1.0"?>
+<test-results total="70" errors="0" failures="5" not-run="0" inconclusive="38" ignored="0" skipped="0" invalid="0">
+    <environment />
+    <culture-info />
+    <test-suite name="1">
+    <results>
+        <test-suite name="2">
+        <results>
+            <test-case description="T1" name="T1" result="Success"/>
+            <test-case description="T2" name="T2" result="Inconclusive"/>
+        </results>
+        </test-suite>
+    </results>
+    </test-suite>
+    <test-suite name="3">
+    <results>
+        <test-case description="T3" name="T3" result="Success"/>
+        <test-case description="T3" name="T3" result="Failure"/>
+    </results>
+    </test-suite>
+</test-results>
+"@
+            $ExpectedCounters = '*<test-results total="4" errors="0" failures="1" not-run="0" inconclusive="1" ignored="0" skipped="0" invalid="0">*'
+            $ActualOutput = Repair-NUnitReport -InputData $TestData
+            NormalizeXmlString $ActualOutput | Should BeLike $ExpectedCounters
+        }
     }
 
     Context "test name cleanup" {

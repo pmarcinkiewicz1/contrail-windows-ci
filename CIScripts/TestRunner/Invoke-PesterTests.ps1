@@ -29,6 +29,9 @@ function Invoke-PesterTests {
 function New-DirIfNoExists {
     Param([Parameter(Mandatory = $true)] [String] $Path)
     $Dir = Split-Path -Parent $Path
+    if (-not $Dir) {
+        return # we're in the output directory
+    }
     if (-not (Test-Path $Dir)) {
         New-Item -Type Directory $Dir | Out-Null
     }
