@@ -122,7 +122,6 @@ function Start-DockerDriver {
     $LogDir = Get-ComputeLogsDir
 
     $Arguments = @(
-        "-forceAsInteractive",
         "-controllerIP", $ControllerConfig.Address,
         "-os_username", $OpenStackConfig.Username,
         "-os_password", $OpenStackConfig.Password,
