@@ -262,6 +262,10 @@ projects:
     template:
       - name: ci-contrail-windows-other-projects-template
 
+  - name: Juniper/contrail-tripleo-heat-templates
+    template:
+      - name: ci-contrail-windows-other-projects-template
+
   - name: Juniper/contrail-tripleo-puppet
     template:
       - name: ci-contrail-windows-other-projects-template
