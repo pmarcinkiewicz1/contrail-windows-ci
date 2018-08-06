@@ -1,7 +1,7 @@
 docker_registry: "10.84.12.27:5000"
-contrail_version: "ocata-master-91"
+contrail_version: "ocata-master-206"
 kolla_version: "ocata"
-contrail_ansible_deployer_version: "6b86bcd7056e20c6d36d3808d2750b1395528b11"
+contrail_ansible_deployer_version: "485a09216ce21d45247fec29c82b44a120838085"
 docker_bridge_network: "172.26.0.1/16"
 site_pulp:
   fqdn: ci-repo.englab.juniper.net

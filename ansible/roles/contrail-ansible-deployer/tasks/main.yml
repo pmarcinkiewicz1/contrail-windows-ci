@@ -1,0 +1,61 @@
+---
+
+- name: Install build dependencies
+  package:
+    name: "{{ item }}"
+    state: present
+  become: true
+  with_items:
+    - ansible
+    - git
+
+- name: Clone contrail-ansible-deployer repository
+  git:
+    repo: 'https://github.com/Juniper/contrail-ansible-deployer'
+    dest: "{{ docker_provision_dir }}"
+    version: "{{ contrail_ansible_deployer_version }}"
+    force: yes
+
+- name: Copy hosts template
+  template:
+    src: instances.j2
+    dest: "{{ docker_provision_dir }}/config/instances.yaml"
+
+- name: Run deployer playbooks
+  include_tasks: run_deployer_playbook.yml
+  vars:
+    playbook: '{{ item.playbook }}'
+    extra_options: '{{ item.extra_options | default("") }}'
+  with_items:
+    - { playbook: 'playbooks/configure_instances.yml', extra_options: '-v' }
+    - { playbook: 'playbooks/install_openstack.yml' }
+    - { playbook: 'playbooks/install_contrail.yml', extra_options: '-e orchestrator=openstack' }
+
+- name: Show the list of running containers
+  command: docker ps -a
+  become: True
+  changed_when: False
+
+- name: Show processes
+  command: ps aux --sort rss
+  changed_when: False
+
+- name: Show memory usage
+  command: free -m
+  changed_when: False
+
+- name: Check interfaces for addresses
+  command: ip addr
+  become: True
+  changed_when: False
+
+- name: (Hack) get config_api container id
+  shell: docker ps | awk '/config_api/ { print $1 }'
+  register: config_api_container
+  become: True
+  changed_when: False
+
+- name: (Hack) restart config_api container to fix issue with VNC API lib
+  command: docker restart {{ config_api_container.stdout }}
+  become: True
+  when: config_api_container.stdout is defined

@@ -1,0 +1,28 @@
+---
+
+- name: "Running {{ playbook }} playbook"
+  command: "ansible-playbook -i inventory/ {{ extra_options }} {{ playbook }}"
+  args:
+    chdir: "{{ docker_provision_dir }}"
+  environment:
+    ANSIBLE_HOST_KEY_CHECKING: 'False'
+    ANSIBLE_STDOUT_CALLBACK: debug
+  become: True
+  register: run_playbook_command
+  ignore_errors: true
+  tags:
+    - skip_ansible_lint # ANSIBLE0012: Commands should not change things if nothing needs doing
+                        # Always run internal playbook: we cannot easily recognize here if it changed something.
+
+- name: "Print {{ playbook }} playbook stdout"
+  debug:
+    var: run_playbook_command.stdout_lines
+
+- name: "Print {{ playbook }} playbook stderr"
+  debug:
+    var: run_playbook_command.stderr_lines
+
+- name: "Fail if {{ playbook }} playbook failed"
+  fail:
+    msg: "Playbook {{ playbook }} has failed"
+  when: run_playbook_command is failed
