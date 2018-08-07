@@ -17,6 +17,7 @@ $DockerDriverOutputDir = "output/docker_driver"
 $vRouterOutputDir = "output/vrouter"
 $vtestOutputDir = "output/vtest"
 $AgentOutputDir = "output/agent"
+$NodemgrOutputDir = "output/nodemgr"
 $DllsOutputDir = "output/dlls"
 $LogsDir = "logs"
 $SconsTestsLogsDir = "unittests-logs"
@@ -70,6 +71,10 @@ try {
             -OutputPath $AgentOutputDir `
             -LogsPath $LogsDir
     }
+
+    Invoke-NodemgrBuild -OutputPath $NodemgrOutputDir `
+        -LogsPath $LogsDir `
+        -BuildMode $BuildMode
 
     if ("AgentTests" -In $ComponentsToBuild) {
         Invoke-AgentTestsBuild -LogsPath $LogsDir `
