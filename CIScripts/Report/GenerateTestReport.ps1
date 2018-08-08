@@ -30,9 +30,9 @@ function Convert-TestReportsToHtml {
 
 function Invoke-RealReportunit {
     param([Parameter(Mandatory = $true)] [string] $NUnitDir)
-    Invoke-NativeCommand -ScriptBlock {
+    Invoke-NativeCommand -CaptureOutput -ScriptBlock {
         ReportUnit.exe $NUnitDir
-    }
+    } | Out-Null
 }
 
 function New-FixedTestReports {
