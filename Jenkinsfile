@@ -5,6 +5,7 @@ pipeline {
     agent none
 
     options {
+        skipDefaultCheckout()
         timeout time: 5, unit: 'HOURS'
         timestamps()
         lock label: 'testenv_pool', quantity: 1
@@ -17,7 +18,9 @@ pipeline {
                 deleteDir()
 
                 // Use the same repo and branch as was used to checkout Jenkinsfile:
-                checkout scm
+                retry(3) {
+                    checkout scm
+                }
 
                 stash name: "Backups", includes: "backups/**"
                 stash name: "CIScripts", includes: "CIScripts/**"
@@ -39,8 +42,10 @@ pipeline {
             steps {
                 deleteDir()
                 unstash "CIScripts"
-                powershell script: './CIScripts/Checkout.ps1'
-                stash name: "SourceCode", excludes: "CIScripts"
+                retry(3) {
+                    powershell script: './CIScripts/Checkout.ps1'
+                    stash name: "SourceCode", excludes: "CIScripts"
+                }
             }
         }
 
