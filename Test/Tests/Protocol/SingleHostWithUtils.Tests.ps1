@@ -63,11 +63,6 @@ Describe "Single compute node protocol tests with utils" {
         Write-Log "success"
 
         Write-Log "winnat status: $( (Get-Service Winnat).Status )"
-        Write-Log "disabling winnat"
-        Invoke-Command -Session $Session {
-            Stop-Service Winnat
-        }
-        Write-Log "winnat status: $( (Get-Service Winnat).Status )"
 
         Write-Log "running big ping"
         Invoke-Command -Session $Session -ScriptBlock {
