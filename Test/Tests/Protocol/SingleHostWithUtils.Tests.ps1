@@ -55,15 +55,26 @@ Describe "Single compute node protocol tests with utils" {
     }
 
     It "LARGE Ping between containers succeeds" {
+        Write-Log "running small ping"
         Invoke-Command -Session $Session -ScriptBlock {
             $Container2IP = $Using:Container2NetInfo.IPAddress
             docker exec $Using:Container1ID powershell "ping $Container2IP > null 2>&1; `$LASTEXITCODE;"
         } | Should Be 0 # Small packet
+        Write-Log "success"
 
+        Write-Log "winnat status: $( (Get-Service Winnat).Status )"
+        Write-Log "disabling winnat"
+        Invoke-Command -Session $Session {
+            Stop-Service Winnat
+        }
+        Write-Log "winnat status: $( (Get-Service Winnat).Status )"
+
+        Write-Log "running big ping"
         Invoke-Command -Session $Session -ScriptBlock {
             $Container1IP = $Using:Container1NetInfo.IPAddress
             docker exec $Using:Container2ID powershell "ping $Container1IP -l 3500 > null 2>&1; `$LASTEXITCODE;"
         } | Should Be 0 # Big packet (fragmentation)
+        Write-Log "success"
     }
 
     It "TCP connection works" {
