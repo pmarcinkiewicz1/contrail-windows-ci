@@ -1,0 +1,49 @@
+---
+
+- hosts: 'testbed'
+  tasks:
+    - name: 'Change the hostname to hostname from the inventory'
+      tags: 'testbed-hostname'
+      win_shell: 'Rename-Computer {{ inventory_hostname }}'
+      register: changing_hostname
+      when: 'ansible_hostname | lower != inventory_hostname'
+
+    - name: 'Reboot host'
+      tags: 'testbed-hostname'
+      win_reboot:
+      when: changing_hostname is not  skipped
+
+    - name: 'Disable DHCP on data plane adapter'
+      tags: 'testbed-dhcp'
+      win_shell: 'Set-NetIPInterface -InterfaceAlias Ethernet1 -Dhcp Disabled -PolicyStore PersistentStore'
+
+    - name: 'Restart data plane adapter'
+      tags: 'testbed-dhcp'
+      win_shell: 'Restart-NetAdapter -InterfaceAlias Ethernet1'
+
+    - name: 'Remove any IP addressing from data plane adapter'
+      tags: 'testbed-ip'
+      win_shell: >
+        Get-NetAdapter -InterfaceAlias Ethernet1 |
+        Get-NetIPAddress -AddressFamily IPv4 |
+        Remove-NetIPAddress -Confirm:$false
+
+    - name: 'Configure static IP on data plane adapter'
+      tags: 'testbed-ip'
+      win_shell: >
+        New-NetIPAddress
+        -InterfaceAlias Ethernet1
+        -IPAddress {{ data_plane_address }}
+        -PrefixLength {{ data_plane_prefix }}
+
+    - name: 'Turn off the firewall'
+      tags: 'testbed-firewall'
+      win_shell: 'Set-NetFirewallProfile -Enabled false'
+
+    - name: 'Reboot host'
+      win_reboot:
+
+- hosts: 'testbed'
+  gather_facts: false
+  roles:
+    - testbed

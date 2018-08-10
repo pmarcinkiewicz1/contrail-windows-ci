@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+TYPE=Ethernet
+PROXY_METHOD=none
+BROWSER_ONLY=no
+IPV4_FAILURE_FATAL=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_FAILURE_FATAL=no
+IPV6_ADDR_GEN_MODE=stable-privacy
+NAME=ens224
+DEVICE=ens224
+ONBOOT=yes
+
+BOOTPROTO=static
+DEFROUTE=no
+IPADDR={{ data_plane_address }}
+NETMASK={{ (data_plane_address + "/" + data_plane_prefix|string) | ipv4("netmask") }}

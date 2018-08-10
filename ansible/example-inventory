@@ -1,0 +1,18 @@
+localhost
+
+[vmware:children]
+testenv
+
+[testenv:children]
+testbed
+controller
+
+[windows:children]
+testbed
+
+[testbed]
+my-tb1 ansible_host=10.7.0.70 data_plane_address=172.16.0.1 data_plane_prefix=24
+my-tb2 ansible_host=10.7.0.87 data_plane_address=172.16.0.2 data_plane_prefix=24
+
+[controller]
+my-ctrl ansible_host=10.7.0.56 ansible_user=root ansible_ssh_pass="Contrail123!" data_plane_address=172.16.0.10 data_plane_prefix=24

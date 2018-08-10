@@ -1,0 +1,37 @@
+---
+
+- hosts: 'controller'
+  tasks:
+    - name: 'Change the hostname to hostname from the inventory'
+      hostname:
+        name: '{{ inventory_hostname }}'
+      become: true
+      when: ansible_hostname | lower != inventory_hostname
+
+    - name: 'Change data plane adapter configuration'
+      template:
+        src: 'data-plane-ifcfg.j2'
+        dest: '/etc/sysconfig/network-scripts/ifcfg-ens224'
+      become: true
+
+    - name: 'Restart networking service'
+      service:
+        name: 'network'
+        state: 'restarted'
+      become: true
+
+    - name: 'Reboot server'
+      shell: '/bin/sleep 2 && /sbin/shutdown -r now'
+      async: 1
+      ignore_errors: true
+      poll: 0
+
+    - name: 'Wait for reconnection after reboot'
+      wait_for_connection:
+        delay: 10
+
+- hosts: 'controller'
+  vars:
+    docker_registry: 'opencontrailnightly'
+  roles:
+    - 'controller'
