@@ -88,6 +88,10 @@ function Assert-IsIpAddressInRawNetAdapterInfoValid {
     if (!$RawAdapterInfo.IPAddress -or ($RawAdapterInfo.IPAddress -isnot [string])) {
         throw "Invalid IPAddress returned from container: $($RawAdapterInfo.IPAddress | ConvertTo-Json)"
     }
+
+    if ($RawAdapterInfo.IPAddress -Match '^169\.254') {
+        throw "Container reports an autoconfiguration IP address: $( $RawAdapterInfo.IPAddress )"
+    }
 }
 
 function ConvertFrom-RawNetAdapterInformation {
