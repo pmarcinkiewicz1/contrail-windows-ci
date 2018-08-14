@@ -114,11 +114,6 @@ function Start-DockerDriver {
 
     Write-Log "Starting Docker Driver"
 
-    Write-Log "Making sure Winnat service is disabled"
-    Invoke-Command -Session $Session {
-        Stop-Service Winnat
-    }
-
     # We have to specify some file, because docker driver doesn't
     # currently support stderr-only logging.
     # TODO: Remove this when after "no log file" option is supported.
@@ -168,6 +163,7 @@ function Stop-DockerDriver {
 
     Invoke-Command -Session $Session -ScriptBlock {
         Stop-Service docker | Out-Null
+        Get-NetNat | Remove-NetNat -Confirm:$false
         Get-ContainerNetwork | Remove-ContainerNetwork -ErrorAction SilentlyContinue -Force
         Get-ContainerNetwork | Remove-ContainerNetwork -Force
         Start-Service docker | Out-Null
