@@ -44,6 +44,12 @@
 - name: Install Docker-EE
   win_shell: "Install-Package Docker -ProviderName DockerProvider -Force"
 
+- name: Make sure docker is started
+  win_service:
+    name: Docker
+    state: started
+    start_mode: auto
+
 - name: Pull docker images
   win_shell: "docker pull {{ item }}"
   with_items:
@@ -84,6 +90,19 @@
 - name: Remove container networks (final attempt)
   win_shell: |
     Get-ContainerNetwork | Remove-ContainerNetwork -Force
+
+- name: Create docker config directory
+  win_file:
+    path: 'C:\ProgramData\Docker\config'
+    state: directory
+
+- name: Disable docker's nat network
+  win_copy:
+    dest: 'C:\ProgramData\Docker\config\daemon.json'
+    content: |
+      {
+        "bridge" : "none"
+      }
 
 # Workaround (#1) for Docker/Windows behavior.
 # When WinNAT is enabled and NetNat object associated with default bridge
