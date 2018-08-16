@@ -30,13 +30,10 @@ Describe "Invoke-UntilSucceeds" -Tags CI, Unit {
         { return $true } | Invoke-UntilSucceeds -Duration 3 | Should Be $true
     }
 
-    It "succeeds if ScriptBlock is immediately true with precondition" {
-        { { return $true } | Invoke-UntilSucceeds -Duration 3 -Precondition { $true } } | Should Not Throw
-        { return $true } | Invoke-UntilSucceeds -Duration 3 -Precondition { $true } | Should Be $true
-    }
-
-    It "fails if ScriptBlock is immediately true but precondition throws" {
-        { { return $true } | Invoke-UntilSucceeds -Duration 3 -Precondition { throw "precondition fails" } } | Should Throw
+    It "stops retrying immediately when HardError is thrown" {
+        $Script:Counter = 0;
+        { { $Script:Counter += 1; throw [HardError]::new("bad") } | Invoke-UntilSucceeds -Duration 3 } | Should Throw
+        $Script:Counter | Should -Be 1
     }
 
     It "succeeds for other values than pure `$true" {
@@ -58,17 +55,6 @@ Describe "Invoke-UntilSucceeds" -Tags CI, Unit {
                 return ($Script:Counter -eq 3)
             } | Invoke-UntilSucceeds -Duration 3
         } | Should Not Throw
-    }
-
-    It "fails if ScriptBlock is eventually true, but precondition is false" {
-        $Script:Counter = 0
-        {
-            { 
-                $Script:Counter += 1;
-                return ($Script:Counter -eq 3)
-            } | Invoke-UntilSucceeds -Duration 3 -Precondition { $Script:Counter -ne 2 }
-        } | Should Throw
-        $Script:Counter | Should Be 2
     }
 
     It "keeps retrying even when exception is throw" {
@@ -173,6 +159,24 @@ Describe "Invoke-UntilSucceeds" -Tags CI, Unit {
         $Script:Counter | Should BeGreaterThan 99
         $Script:Counter | Should BeLessThan 200
         ((Get-Date) - $StartDate).TotalSeconds | Should BeGreaterThan 99
+    }
+
+    It "fails when nor Duration nor NumRetries is specified" {
+        { Invoke-UntilSucceeds { $true } } | Should -Throw
+    }
+
+    It "fails when both Duration and NumRetries is specified" {
+        { Invoke-UntilSucceeds { $true } -Duration 5 -NumRetries 5 } | Should -Throw
+    }
+
+    It "works with NumRetries mode" {
+        Invoke-UntilSucceeds { $true } -NumRetries 5 | Should -Be $True
+    }
+
+    It "retries maximally NumRetries times if the flag is set" {
+        $Script:Counter = 0
+        { Invoke-UntilSucceeds { $Script:Counter += 1; $false } -NumRetries 5 } | Should -Throw
+        $Script:Counter | Should -Be 5
     }
 
     BeforeEach {

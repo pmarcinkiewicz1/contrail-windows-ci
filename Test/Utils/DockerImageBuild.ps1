@@ -1,4 +1,6 @@
 . $PSScriptRoot\..\..\CIScripts\Common\Aliases.ps1
+. $PSScriptRoot\..\..\CIScripts\Common\Invoke-NativeCommand.ps1
+. $PSScriptRoot\..\..\CIScripts\Common\Invoke-UntilSucceeds.ps1
 . $PSScriptRoot\..\PesterLogger\PesterLogger.ps1
 
 $DockerfilesPath = "$PSScriptRoot\..\DockerFiles\"
@@ -25,7 +27,27 @@ function Initialize-DockerImage  {
 
     Write-Log "Building Docker image"
     $TestbedDockerfilePath = $TestbedDockerfilesDir + $DockerImageName
-    Invoke-Command -Session $Session -ScriptBlock {
-        docker build -t $Using:DockerImageName $Using:TestbedDockerfilePath
-    }
+
+    # This retry loop is a workaround for a "container <hash> encountered an error during Start:
+    # failure in a Windows system call: This operation returned because the timeout period expired. (0x5b4)".
+    # This is probably caused by slow disks or other windows error. See:
+    # https://github.com/MicrosoftDocs/Virtualization-Documentation/issues/575
+    # https://github.com/moby/moby/issues/27588
+    {
+        $Command = Invoke-NativeCommand -Session $Session -CaptureOutput -AllowNonZero -ScriptBlock {
+            docker build -t $Using:DockerImageName $Using:TestbedDockerfilePath
+        }
+
+        if ($Command.ExitCode -eq 0) {
+            return $true
+        }
+
+        Write-Log $Command.Output
+
+        if ($Command.Output -Match ".*container.*encountered an error during Start.*0x5b4.*") {
+            throw $Command.Output
+        } else {
+            throw [HardError]::new("hard error", $Command.Output)
+        }
+    } | Invoke-UntilSucceeds -Name "docker build" -NumRetries 5
 }

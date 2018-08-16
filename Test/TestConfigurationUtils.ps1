@@ -352,8 +352,11 @@ function Initialize-DriverAndExtension {
             $TestProcessRunning | Invoke-UntilSucceeds -Duration 15
 
             {
+                if (-not (Invoke-Command $TestProcessRunning)) {
+                    throw [HardError]::new("docker process has stopped running")
+                }
                 Test-IsDockerDriverEnabled -Session $Session
-            } | Invoke-UntilSucceeds -Duration 600 -Interval 5 -Precondition $TestProcessRunning
+            } | Invoke-UntilSucceeds -Duration 600 -Interval 5
 
             Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.VHostName
 
