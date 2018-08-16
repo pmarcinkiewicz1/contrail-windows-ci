@@ -169,10 +169,12 @@ function Start-UDPEchoServerInContainer {
     '$UDPSocket.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true);' + `
     '$UDPSocket.Client.Bind($IPEndpoint);' + `
     'while($true) {{' + `
-    '    $Payload = $UDPSocket.Receive([ref]$RemoteIPEndpoint);' + `
-    '    $RemoteIPEndpoint.Port = $SendPort;' + `
-    '    $UDPSocket.Send($Payload, $Payload.Length, $RemoteIPEndpoint);' + `
-    '    \"Received message and sent it to: $RemoteIPEndpoint.\" | Out-String;' + `
+    '    try {{' + `
+    '        $Payload = $UDPSocket.Receive([ref]$RemoteIPEndpoint);' + `
+    '        $RemoteIPEndpoint.Port = $SendPort;' + `
+    '        $UDPSocket.Send($Payload, $Payload.Length, $RemoteIPEndpoint);' + `
+    '        \"Received message and sent it to: $RemoteIPEndpoint.\" | Out-String;' + `
+    '    }} catch {{ break }}' + `
     '}}') -f $ClientPort, $ServerPort
 
     Invoke-Command -Session $Session -ScriptBlock {
@@ -386,8 +388,7 @@ Describe "Tunnelling with Agent tests" {
     }
 
     Context "IP fragmentation" {
-        # TODO: Enable this test once fragmentation is properly implemented in vRouter
-        It "ICMP - Ping with big buffer succeeds" -Pending {
+        It "ICMP - Ping with big buffer succeeds" {
             $Container1MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
             $Container2MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container2NetInfo.MtuSize
 
@@ -410,8 +411,7 @@ Describe "Tunnelling with Agent tests" {
             }
         }
 
-        # TODO: Enable this test once fragmentation is properly implemented in vRouter
-        It "UDP - sending big buffer succeeds" -Pending {
+        It "UDP - sending big buffer succeeds" {
             $MsgFragmentationThreshold = Get-MaxUDPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
 
             $MessageLargerBeforeTunnelling = "a" * $($MsgFragmentationThreshold + 1)
