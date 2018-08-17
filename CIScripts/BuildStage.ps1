@@ -45,15 +45,17 @@ if ($NothingToBuild -or $CopyDisabledArtifacts) {
 }
 
 if (Test-Path Env:UPLOAD_ARTIFACTS) {
-    $ArtifactsPath = "\\$Env:SHARED_DRIVE_IP\SharedFiles\WindowsCI-UploadedArtifacts"
-    $Subdir = "$Env:JOB_NAME\$Env:BUILD_NUMBER"
-    $DiskName = [Guid]::newGuid().Guid
-    New-PSDrive -Name $DiskName -PSProvider "FileSystem" -Root $ArtifactsPath -Credential $Credentials
-    Push-Location
-    Set-Location ($Diskname + ":\")
-    New-Item -Name $Subdir -ItemType directory
-    Pop-Location
-    Copy-Item ($OutputRootDirectory + "\*") -Destination ("$DiskName" + ":\" + $Subdir) -Recurse -Container
+    if ($Env:UPLOAD_ARTIFACTS -ne "0") {
+        $ArtifactsPath = "\\$Env:SHARED_DRIVE_IP\SharedFiles\WindowsCI-UploadedArtifacts"
+        $Subdir = "$Env:JOB_NAME\$Env:BUILD_NUMBER"
+        $DiskName = [Guid]::newGuid().Guid
+        New-PSDrive -Name $DiskName -PSProvider "FileSystem" -Root $ArtifactsPath -Credential $Credentials
+        Push-Location
+        Set-Location ($Diskname + ":\")
+        New-Item -Name $Subdir -ItemType directory
+        Pop-Location
+        Copy-Item ($OutputRootDirectory + "\*") -Destination ("$DiskName" + ":\" + $Subdir) -Recurse -Container
+    }
 }
 
 exit 0
