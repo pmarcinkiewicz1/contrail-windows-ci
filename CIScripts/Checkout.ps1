@@ -4,10 +4,18 @@
 
 $Job = [Job]::new("Checkout")
 
-Get-ZuulRepos -GerritUrl $Env:GERRIT_URL `
-              -ZuulProject $Env:ZUUL_PROJECT `
-              -ZuulRef $Env:ZUUL_REF `
-              -ZuulUrl $Env:ZUUL_URL `
-              -ZuulBranch $Env:ZUUL_BRANCH
+if (Test-Path "Env:ZUUL_URL") {
+    $ZuulAdditionalParams = @{
+        Url = $Env:ZUUL_URL
+        Project = $Env:ZUUL_PROJECT
+        Ref = $Env:ZUUL_REF
+    }
+    Get-ZuulRepos -GerritUrl $Env:GERRIT_URL `
+                  -ZuulBranch $Env:ZUUL_BRANCH `
+                  -ZuulAdditionalParams $ZuulAdditionalParams
+} else {
+    Get-ZuulRepos -GerritUrl $Env:GERRIT_URL `
+                  -ZuulBranch $Env:ZUUL_BRANCH
+}
 
 $Job.Done()

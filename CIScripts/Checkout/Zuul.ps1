@@ -3,20 +3,23 @@
 function Get-ZuulRepos {
     Param (
         [Parameter(Mandatory = $true)] [string] $GerritUrl,
-        [Parameter(Mandatory = $true)] [string] $ZuulProject,
-        [Parameter(Mandatory = $true)] [string] $ZuulRef,
-        [Parameter(Mandatory = $true)] [string] $ZuulUrl,
-        [Parameter(Mandatory = $true)] [string] $ZuulBranch
+        [Parameter(Mandatory = $true)] [string] $ZuulBranch,
+        [Parameter(Mandatory = $false)] [hashtable] $ZuulAdditionalParams
     )
 
     $ZuulClonerOptions = @(
-        "--zuul-project=$ZuulProject",
-        "--zuul-ref=$ZuulRef",
-        "--zuul-url=$ZuulUrl",
-        "--zuul-branch=$ZuulBranch",
+        "--zuul-branch=$($ZuulBranch)",
         "--map=./CIScripts/clonemap.yml",
         $GerritUrl
     )
+
+    if ($ZuulAdditionalParams) {
+        $ZuulClonerOptions = @(
+            "--zuul-url=$($ZuulAdditionalParams.Url)",
+            "--zuul-project=$($ZuulAdditionalParams.Project)",
+            "--zuul-ref=$($ZuulAdditionalParams.Ref)"
+        ) + $ZuulClonerOptions
+    }
 
     # TODO(sodar): Get project list from clonemap.yml
     $ProjectList = @(
