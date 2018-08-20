@@ -1,0 +1,14 @@
+This seems like a network issue, therefore we should retry it.
+
+2018-08-17 03:46:16.835000 | [CI selfcheck - Windows] ================================================================================
+                           | [Pipeline] [Static analysis - Windows] unstash
+                           | [Pipeline] [Static analysis - Windows] unstash
+2018-08-17 03:46:17.410000 | [Testenv provisioning] ok: [523-controller -> localhost]
+                           | [Pipeline] [Build] unstash
+2018-08-17 03:46:19.618000 | [Testenv provisioning] fatal: [523-wintb01 -> localhost]: FAILED! => {"changed": false, "msg": "Unable to communicate with the remote host, since it is disconnected."}
+2018-08-17 03:46:19.624000 | [Testenv provisioning] fatal: [523-wintb02 -> localhost]: FAILED! => {"changed": false, "msg": "Unable to communicate with the remote host, since it is disconnected."}
+2018-08-17 03:46:19.625000 | [Testenv provisioning] 	to retry, use: --limit @/var/lib/jenkins/workspace/WinContrail/****-server2016-prod/ansible/vmware-destroy-testenv.retry
+2018-08-17 03:46:19.626000 | [Testenv provisioning] 
+2018-08-17 03:46:19.626000 | [Testenv provisioning] PLAY RECAP *********************************************************************
+2018-08-17 03:46:19.626000 | [Testenv provisioning] 523-controller             : ok=2    changed=0    unreachable=0    failed=0   
+2018-08-17 03:46:19.626000 | [Testenv provisioning] 523-wintb01                : ok=1    changed=0    unreachable=0    failed=1   
