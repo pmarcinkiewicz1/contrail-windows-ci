@@ -131,7 +131,7 @@ pipeline {
                 }
 
                 stage('Build') {
-                    agent { label 'builder' }
+                    agent { label 'builder-golang' }
                     environment {
                         THIRD_PARTY_CACHE_PATH = "C:/BUILD_DEPENDENCIES/third_party_cache/"
                         DRIVER_SRC_PATH = "github.com/Juniper/contrail-windows-docker-driver"
