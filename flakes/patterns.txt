@@ -8,3 +8,4 @@ ERROR:zuul\.Repo:Unable to initialize repo for https://review\.opencontrail\.org
 Get https://registry-1\.docker\.io/v2/:.*getsockopt: no route to host
 InvalidRunspaceStateException:.* The session state is Broken.$
 Unable to communicate with the remote host, since it is disconnected
+Failure talking to yum.*No more mirrors to try
