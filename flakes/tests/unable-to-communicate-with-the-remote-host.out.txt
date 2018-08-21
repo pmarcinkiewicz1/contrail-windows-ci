@@ -1,0 +1,2 @@
+2018-08-17 03:46:19.618000 | [Testenv provisioning] fatal: [523-wintb01 -> localhost]: FAILED! => {"changed": false, "msg": "Unable to communicate with the remote host, since it is disconnected."}
+2018-08-17 03:46:19.624000 | [Testenv provisioning] fatal: [523-wintb02 -> localhost]: FAILED! => {"changed": false, "msg": "Unable to communicate with the remote host, since it is disconnected."}

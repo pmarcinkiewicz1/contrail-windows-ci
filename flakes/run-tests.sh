@@ -17,7 +17,8 @@ for test_input in *.in.txt
 do
     test_output=$(basename "$test_input" .in.txt).out.txt
     if
-        ../grep.sh "$test_input" | diff - "$test_output"
+        # --strip-trailing-cr to enable this script to be ran on Windows
+        ../grep.sh "$test_input" | diff --strip-trailing-cr - "$test_output"
     then
         >&2 echo PASS "$test_input"
     else
