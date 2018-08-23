@@ -27,6 +27,7 @@ $Directories = @(
     $vRouterOutputDir,
     $vtestOutputDir,
     $AgentOutputDir,
+    $NodemgrOutputDir,
     $DllsOutputDir,
     $LogsDir,
     $SconsTestsLogsDir

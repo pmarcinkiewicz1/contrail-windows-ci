@@ -149,9 +149,9 @@ function Invoke-ExtensionBuild {
                      -MSIPath $vRouterMSI
 
     $Job.Step("Copying artifacts to $OutputPath", {
-        Copy-Item $utilsMSI $OutputPath -Recurse
-        Copy-Item $vRouterMSI $OutputPath -Recurse
-        Copy-Item $vRouterCert $OutputPath -Recurse
+        Copy-Item $utilsMSI $OutputPath
+        Copy-Item $vRouterMSI $OutputPath
+        Copy-Item $vRouterCert $OutputPath
     })
 
     $Job.PopStep()
