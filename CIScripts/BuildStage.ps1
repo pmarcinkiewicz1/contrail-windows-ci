@@ -2,6 +2,7 @@
 . $PSScriptRoot\Common\Job.ps1
 . $PSScriptRoot\Common\Aliases.ps1
 . $PSScriptRoot\Common\Credentials.ps1
+. $PSScriptRoot\Build\BuildMode.ps1
 
 $Credentials = Get-MgmtCreds
 
@@ -47,7 +48,8 @@ if ($NothingToBuild -or $CopyDisabledArtifacts) {
 if (Test-Path Env:UPLOAD_ARTIFACTS) {
     if ($Env:UPLOAD_ARTIFACTS -ne "0") {
         $ArtifactsPath = "\\$Env:SHARED_DRIVE_IP\SharedFiles\WindowsCI-UploadedArtifacts"
-        $Subdir = "$Env:JOB_NAME\$Env:BUILD_NUMBER"
+        $BuildMode = Resolve-BuildMode
+        $Subdir = "$Env:JOB_NAME\$BuildMode\$Env:BUILD_NUMBER"
         $DiskName = [Guid]::newGuid().Guid
         New-PSDrive -Name $DiskName -PSProvider "FileSystem" -Root $ArtifactsPath -Credential $Credentials
         Push-Location

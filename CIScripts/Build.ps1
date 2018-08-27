@@ -1,17 +1,16 @@
 # Build builds selected Windows Compute components.
-
 . $PSScriptRoot\Common\Init.ps1
 . $PSScriptRoot\Common\Job.ps1
 . $PSScriptRoot\Common\Components.ps1
 . $PSScriptRoot\Build\BuildFunctions.ps1
+. $PSScriptRoot\Build\BuildMode.ps1
 
 
 $Job = [Job]::new("Build")
 
-$IsReleaseMode = [bool]::Parse($Env:BUILD_IN_RELEASE_MODE)
-$BuildMode = $(if ($IsReleaseMode) { "production" } else { "debug" })
-
 Initialize-BuildEnvironment -ThirdPartyCache $Env:THIRD_PARTY_CACHE_PATH
+
+$SconsBuildMode = Resolve-BuildMode
 
 $DockerDriverOutputDir = "output/docker_driver"
 $vRouterOutputDir = "output/vrouter"
@@ -56,7 +55,7 @@ try {
             -SigntoolPath $Env:SIGNTOOL_PATH `
             -CertPath $Env:CERT_PATH `
             -CertPasswordFilePath $Env:CERT_PASSWORD_FILE_PATH `
-            -BuildMode $BuildMode `
+            -BuildMode $SconsBuildMode `
             -OutputPath $vRouterOutputDir `
             -LogsPath $LogsDir
 
@@ -68,25 +67,25 @@ try {
             -SigntoolPath $Env:SIGNTOOL_PATH `
             -CertPath $Env:CERT_PATH `
             -CertPasswordFilePath $Env:CERT_PASSWORD_FILE_PATH `
-            -BuildMode $BuildMode `
+            -BuildMode $SconsBuildMode `
             -OutputPath $AgentOutputDir `
             -LogsPath $LogsDir
     }
 
     Invoke-NodemgrBuild -OutputPath $NodemgrOutputDir `
         -LogsPath $LogsDir `
-        -BuildMode $BuildMode
+        -BuildMode $SconsBuildMode
 
     if ("AgentTests" -In $ComponentsToBuild) {
         Invoke-AgentTestsBuild -LogsPath $LogsDir `
-            -BuildMode $BuildMode
+            -BuildMode $SconsBuildMode
     }
 
-    if (-not $IsReleaseMode) {
+    if ($SconsBuildMode -eq "debug") {
         Copy-DebugDlls -OutputPath $DllsOutputDir
     }
 } finally {
-    $testDirs = Get-ChildItem ".\build\$BuildMode" -Directory
+    $testDirs = Get-ChildItem ".\build\$SconsBuildMode" -Directory
     foreach ($d in $testDirs) {
         Copy-Item -Path $d.FullName -Destination $SconsTestsLogsDir `
             -Recurse -Filter "*.exe.log" -Container
