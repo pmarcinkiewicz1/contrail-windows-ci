@@ -7,6 +7,7 @@ Param(
 
 . $PSScriptRoot\Common\Init.ps1
 . $PSScriptRoot\Common\Job.ps1
+. $PSScriptRoot\Testenv\Testenv.ps1
 . $PSScriptRoot\Testenv\Testbed.ps1
 . $PSScriptRoot\Deploy\Deployment.ps1
 

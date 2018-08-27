@@ -13,14 +13,12 @@ Describe "Invoke-CommandWithFunctions tests" -Tags CI, Systest {
     function Test-CWF {
         param(
             [Parameter(Mandatory=$true)] [string[]] $Functions,
-            [Parameter(Mandatory=$true)] [ScriptBlock] $ScriptBlock,
-            [Switch] $CaptureOutput
+            [Parameter(Mandatory=$true)] [ScriptBlock] $ScriptBlock
         )
 
         Invoke-CommandWithFunctions -Session $Session `
             -Functions $Functions `
-            -ScriptBlock $ScriptBlock `
-            -CaptureOutput:$CaptureOutput
+            -ScriptBlock $ScriptBlock
     }
 
     function Test-SimpleFunction {
@@ -33,8 +31,11 @@ Describe "Invoke-CommandWithFunctions tests" -Tags CI, Systest {
 
     Context "Incorrect function usage handling" {
         It "throws on nonexisting function" {
-            { Test-CWF -Functions "Test-SimpleFunction"  `
-              -ScriptBlock { Test-ANonExistingFunction } } | Should Throw
+            {
+                Test-CWF -Functions "Test-SimpleFunction" -ScriptBlock {
+                    Test-ANonExistingFunction # analyzer: allow unknown-functions
+                }
+            } | Should Throw
         }
 
         It "throws on invoking with incorrectly passed parameter" {
@@ -48,13 +49,13 @@ Describe "Invoke-CommandWithFunctions tests" -Tags CI, Systest {
             $str = "A simple string"
             Test-CWF -Functions "Test-SimpleFunction" `
                 -ScriptBlock { Test-SimpleFunction -SimpleParam $using:str } `
-                -CaptureOutput | Should Be $str
+                | Should Be $str
         }
 
         It "correctly invokes function with parameters defined at remote session" {
             Test-CWF -Functions "Test-SimpleFunction"  `
                 -ScriptBlock { $a = "abcd"; Test-SimpleFunction -SimpleParam $a } `
-                -CaptureOutput | Should Be "abcd"
+                | Should Be "abcd"
         }
     }
 
@@ -88,7 +89,7 @@ Describe "Invoke-CommandWithFunctions tests" -Tags CI, Systest {
         It "Inner function calls passed string as scriptblock and outputs result" {
             Test-CWF -Functions $TestFunctions  `
                 -ScriptBlock { Test-OuterFunction -TestString "whoami.exe" } `
-                -CaptureOutput | Should Not BeNullOrEmpty
+                | Should Not BeNullOrEmpty
         }
 
         It "allows to throw exception" {
@@ -108,7 +109,7 @@ Describe "Invoke-CommandWithFunctions tests" -Tags CI, Systest {
 
             Test-CWF -Functions $TestPipeline  `
                 -ScriptBlock { 1..5 | Test-PipelineFunction } `
-                -CaptureOutput | Should Be @('1', '2', '3', '4', '5')
+                | Should Be @('1', '2', '3', '4', '5')
         }
     }
 

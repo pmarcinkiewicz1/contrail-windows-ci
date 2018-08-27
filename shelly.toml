@@ -1,3 +1,6 @@
+# Configuration file for `shelly` static Powershell analyzer:
+# https://github.com/krdln/shelly
+
 [levels]
 # Insert custom lint levels here
 
@@ -7,4 +10,5 @@ cmdlets = [
     "Disconnect-VBRServer",
     "Start-VBRZip",
     "Find-VBRViEntity",
+    "vrfstats",
 ]

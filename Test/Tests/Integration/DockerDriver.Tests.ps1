@@ -7,6 +7,7 @@ Param (
 
 . $PSScriptRoot\..\..\..\CIScripts\Common\Aliases.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Common\Invoke-NativeCommand.ps1
+. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1

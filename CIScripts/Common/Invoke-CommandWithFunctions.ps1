@@ -1,4 +1,5 @@
 . $PSScriptRoot/Aliases.ps1
+
 function Invoke-CommandWithFunctions {
     <#
     .SYNOPSIS
@@ -19,15 +20,11 @@ function Invoke-CommandWithFunctions {
     Remote session where the Scriptblock will be invoked.
     .PARAMETER Functions
     Names of locally defined functions to be made available in remote scope.
-    .PARAMETER CaptureOutput
-    If set, output from invoking ScriptBlock will be saved to a variable and returned.
-    If not, output is printed to logs or stdout depending on whether logging is on.
     #>
     Param(
         [Parameter(Mandatory=$true)] [ScriptBlock] $ScriptBlock,
         [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [string[]] $Functions,
-        [Switch] $CaptureOutput
+        [Parameter(Mandatory=$true)] [string[]] $Functions
     )
 
     $FunctionsInvoked = $Functions `
@@ -39,19 +36,12 @@ function Invoke-CommandWithFunctions {
     }
 
     try {
-        $Output = Invoke-Command -Session $Session -ScriptBlock $ScriptBlock
+        return Invoke-Command -Session $Session -ScriptBlock $ScriptBlock
     }
     finally {
         Invoke-Command -Session $Session -ScriptBlock {
             $Using:FunctionsInvoked `
                 | ForEach-Object { Remove-Item -Path "Function:$( $_.Name )" }
         }
-    }
-
-    if ($CaptureOutput) {
-        return $Output
-    }
-    else {
-        Write-Log $Output
     }
 }

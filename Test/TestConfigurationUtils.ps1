@@ -1,5 +1,6 @@
 . $PSScriptRoot\..\CIScripts\Common\Invoke-UntilSucceeds.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-NativeCommand.ps1
+. $PSScriptRoot\..\CIScripts\Common\Invoke-CommandWithFunctions.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
@@ -309,15 +310,9 @@ function Select-ValidNetIPInterface {
 function Wait-RemoteInterfaceIP {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
            [Parameter(Mandatory = $true)] [String] $AdapterName)
-    $InjectedFunction = [PSCustomObject] @{ 
-        Name = 'Select-ValidNetIPInterface'; 
-        Body = ${Function:Select-ValidNetIPInterface} 
-    }
 
     Invoke-UntilSucceeds -Name "Waiting for IP on interface $AdapterName" -Duration 60 {
-        Invoke-Command -Session $Session {
-            $Using:InjectedFunction | ForEach-Object { Invoke-Expression "function $( $_.Name ) { $( $_.Body ) }" }
-
+        Invoke-CommandWithFunctions -Functions "Select-ValidNetIPInterface" -Session $Session {
             Get-NetAdapter -Name $Using:AdapterName `
             | Get-NetIPAddress -ErrorAction SilentlyContinue `
             | Select-ValidNetIPInterface
