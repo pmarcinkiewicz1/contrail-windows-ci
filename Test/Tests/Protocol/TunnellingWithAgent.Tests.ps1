@@ -18,6 +18,7 @@ Param (
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\PesterLogger\RemoteLogCollector.ps1
 
+$ContrailNM = $null
 $TCPServerDockerImage = "python-http"
 $Container1ID = "jolly-lumberjack"
 $Container2ID = "juniper-tree"
@@ -123,34 +124,6 @@ function Uninstall-Components {
     Uninstall-Agent -Session $Session
     Uninstall-DockerDriver -Session $Session
     Uninstall-Extension -Session $Session
-}
-
-function Test-MPLSoGRE {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    $VrfStats = Get-VrfStats -Session $Session
-    if (($VrfStats.MplsGrePktCount -eq 0) -or ($VrfStats.MplsUdpPktCount -ne 0) -or ($VrfStats.VxlanPktCount -ne 0)) {
-        Write-Log "Tunnel usage statistics: Udp = $($VrfStats.MplsUdpPktCount), Gre = $($VrfStats.MplsGrePktCount), Vxlan = $($VrfStats.VxlanPktCount)"
-        return $false
-    } else {
-        return $true
-    }
-}
-
-function Test-MPLSoUDP {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    $VrfStats = Get-VrfStats -Session $Session
-    if (($VrfStats.MplsGrePktCount -ne 0) -or ($VrfStats.MplsUdpPktCount -eq 0) -or ($VrfStats.VxlanPktCount -ne 0)) {
-        Write-Log "Tunnel usage statistics: Udp = $($VrfStats.MplsUdpPktCount), Gre = $($VrfStats.MplsGrePktCount), Vxlan = $($VrfStats.VxlanPktCount)"
-        return $false
-    } else {
-        return $true
-    }
 }
 
 function Start-UDPEchoServerInContainer {
@@ -317,106 +290,57 @@ function Test-UDP {
     }
 }
 
-Describe "Tunnelling with Agent tests" {
-    Context "Tunneling" {
-        It "ICMP - Ping between containers on separate compute nodes succeeds" {
-            Test-Ping `
-                -Session $Sessions[0] `
-                -SrcContainerName $Container1ID `
-                -DstContainerName $Container2ID `
-                -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+Describe "Tunneling with Agent tests" {
 
-            Test-Ping `
-                -Session $Sessions[1] `
-                -SrcContainerName $Container2ID `
-                -DstContainerName $Container1ID `
-                -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+    #
+    #               !!!!!! IMPORTANT: DEBUGGING/DEVELOPING THESE TESTS !!!!!!
+    #
+    # tl;dr: "fresh" controller uses MPLSoGRE by default. But when someone logs in via WebUI for
+    # the first time, it changes to MPLSoUDP. You have been warned.
+    #
+    # Logging into WebUI for the first time is known to cause problems.
+    # When someone logs into webui for the first time, it suddenly realizes that its default
+    # encap priorities list is different than the one on the controller. It causes a cascade of
+    # requests from WebUI to config node, that will change the tunneling method.
+    #
+    # When debugging, make sure that the encapsulation method specified in webui
+    # (under Configure/Infrastructure/Global Config/Virtual Routers/Encapsulation Priority Order)
+    # matches the one that is applied using ContrailNM in code below (Config node REST API).
+    # Do it especially when logging in via WebUI for the first time.
+    #
 
-            # TODO: Uncomment these checks once we can actually control tunneling type.
-            # Test-MPLSoGRE -Session $Sessions[0] | Should Be $true
-            # Test-MPLSoGRE -Session $Sessions[1] | Should Be $true
-        }
-
-        It "TCP - HTTP connection between containers on separate compute nodes succeeds" {
-            Test-TCP `
-                -Session $Sessions[1] `
-                -SrcContainerName $Container2ID `
-                -DstContainerName $Container1ID `
-                -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
-
-            # TODO: Uncomment these checks once we can actually control tunneling type.
-            # Test-MPLSoGRE -Session $Sessions[0] | Should Be $true
-            # Test-MPLSoGRE -Session $Sessions[1] | Should Be $true
-        }
-
-        It "UDP" {
-            $MyMessage = "We are Tungsten Fabric. We come in peace."
-
-            Test-UDP `
-                -Session1 $Sessions[0] `
-                -Session2 $Sessions[1] `
-                -Container1Name $Container1ID `
-                -Container2Name $Container2ID `
-                -Container1IP $Container1NetInfo.IPAddress `
-                -Container2IP $Container2NetInfo.IPAddress `
-                -Message $MyMessage | Should Be $true
-
-            # TODO: Uncomment these checks once we can actually control tunneling type.
-            # Test-MPLSoGRE -Session $Sessions[0] | Should Be $true
-            # Test-MPLSoGRE -Session $Sessions[1] | Should Be $true
-        }
-    }
-
-    Context "MPLSoUDP" {
-        # TODO: Enable this test once we can actually control tunneling type.
-        It "ICMP - Ping between containers on separate compute nodes succeeds (MPLSoUDP)" -Pending {
-            Test-Ping `
-                -Session $Sessions[0] `
-                -SrcContainerName $Container1ID `
-                -DstContainerName $Container2ID `
-                -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
-
-            Test-Ping `
-                -Session $Sessions[1] `
-                -SrcContainerName $Container2ID `
-                -DstContainerName $Container1ID `
-                -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
-
-            Test-MPLSoUDP -Session $Sessions[0] | Should Be $true
-            Test-MPLSoUDP -Session $Sessions[1] | Should Be $true
-        }
-    }
-
-    Context "IP fragmentation" {
-        It "ICMP - Ping with big buffer succeeds" {
-            $Container1MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
-            $Container2MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container2NetInfo.MtuSize
-
-            $SrcContainers = @($Container1ID, $Container2ID)
-            $DstContainers = @($Container2ID, $Container1ID)
-            $DstIPs = @($Container2NetInfo.IPAddress, $Container1NetInfo.IPAddress)
-            $BufferSizes = @($Container1MsgFragmentationThreshold, $Container2MsgFragmentationThreshold)
-
-            foreach ($ContainerIdx in @(0, 1)) {
-                $BufferSizeLargerBeforeTunnelling = $BufferSizes[$ContainerIdx] + 1
-                $BufferSizeLargerAfterTunnelling = $BufferSizes[$ContainerIdx] - 1
-                foreach ($BufferSize in @($BufferSizeLargerBeforeTunnelling, $BufferSizeLargerAfterTunnelling)) {
-                    Test-Ping `
-                        -Session $Sessions[$ContainerIdx] `
-                        -SrcContainerName $SrcContainers[$ContainerIdx] `
-                        -DstContainerName $DstContainers[$ContainerIdx] `
-                        -DstContainerIP $DstIPs[$ContainerIdx] `
-                        -BufferSize $BufferSize | Should Be 0
-                }
+    foreach($TunnelingMethod in @("MPLSoGRE", "MPLSoUDP", "VXLAN")) {
+        Context "Tunneling $TunnelingMethod" {
+            BeforeEach {
+                $EncapPrioritiesList = @($TunnelingMethod)
+                $ContrailNM.SetEncapPriorities($EncapPrioritiesList)
             }
-        }
 
-        It "UDP - sending big buffer succeeds" {
-            $MsgFragmentationThreshold = Get-MaxUDPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
+            It "ICMP - Ping between containers on separate compute nodes succeeds" {
+                Test-Ping `
+                    -Session $Sessions[0] `
+                    -SrcContainerName $Container1ID `
+                    -DstContainerName $Container2ID `
+                    -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
 
-            $MessageLargerBeforeTunnelling = "a" * $($MsgFragmentationThreshold + 1)
-            $MessageLargerAfterTunnelling = "a" * $($MsgFragmentationThreshold - 1)
-            foreach ($Message in @($MessageLargerBeforeTunnelling, $MessageLargerAfterTunnelling)) {
+                Test-Ping `
+                    -Session $Sessions[1] `
+                    -SrcContainerName $Container2ID `
+                    -DstContainerName $Container1ID `
+                    -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+            }
+
+            It "TCP - HTTP connection between containers on separate compute nodes succeeds" {
+                Test-TCP `
+                    -Session $Sessions[1] `
+                    -SrcContainerName $Container2ID `
+                    -DstContainerName $Container1ID `
+                    -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+            }
+
+            It "UDP - sending message between containers on separate compute nodes succeeds" {
+                $MyMessage = "We are Tungsten Fabric. We come in peace."
+
                 Test-UDP `
                     -Session1 $Sessions[0] `
                     -Session2 $Sessions[1] `
@@ -424,8 +348,51 @@ Describe "Tunnelling with Agent tests" {
                     -Container2Name $Container2ID `
                     -Container1IP $Container1NetInfo.IPAddress `
                     -Container2IP $Container2NetInfo.IPAddress `
-                    -Message $Message | Should Be $true
+                    -Message $MyMessage | Should Be $true
             }
+
+            It "IP fragmentation - ICMP - Ping with big buffer succeeds" {
+                $Container1MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
+                $Container2MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container2NetInfo.MtuSize
+
+                $SrcContainers = @($Container1ID, $Container2ID)
+                $DstContainers = @($Container2ID, $Container1ID)
+                $DstIPs = @($Container2NetInfo.IPAddress, $Container1NetInfo.IPAddress)
+                $BufferSizes = @($Container1MsgFragmentationThreshold, $Container2MsgFragmentationThreshold)
+
+                foreach ($ContainerIdx in @(0, 1)) {
+                    $BufferSizeLargerBeforeTunneling = $BufferSizes[$ContainerIdx] + 1
+                    $BufferSizeLargerAfterTunneling = $BufferSizes[$ContainerIdx] - 1
+                    foreach ($BufferSize in @($BufferSizeLargerBeforeTunneling, $BufferSizeLargerAfterTunneling)) {
+                        Test-Ping `
+                            -Session $Sessions[$ContainerIdx] `
+                            -SrcContainerName $SrcContainers[$ContainerIdx] `
+                            -DstContainerName $DstContainers[$ContainerIdx] `
+                            -DstContainerIP $DstIPs[$ContainerIdx] `
+                            -BufferSize $BufferSize | Should Be 0
+                    }
+                }
+            }
+
+            It "IP fragmentation - UDP - sending big buffer succeeds" {
+                $MsgFragmentationThreshold = Get-MaxUDPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
+
+                $MessageLargerBeforeTunneling = "a" * $($MsgFragmentationThreshold + 1)
+                $MessageLargerAfterTunneling = "a" * $($MsgFragmentationThreshold - 1)
+                foreach ($Message in @($MessageLargerBeforeTunneling, $MessageLargerAfterTunneling)) {
+                    Test-UDP `
+                        -Session1 $Sessions[0] `
+                        -Session2 $Sessions[1] `
+                        -Container1Name $Container1ID `
+                        -Container2Name $Container2ID `
+                        -Container1IP $Container1NetInfo.IPAddress `
+                        -Container2IP $Container2NetInfo.IPAddress `
+                        -Message $Message | Should Be $true
+                }
+            }
+
+            # NOTE: There is no TCPoIP fragmentation test, because it auto-adjusts frame size, so
+            #       it would always pass.
         }
     }
 

@@ -1,4 +1,4 @@
-$CONVERT_TO_JSON_MAX_DEPTH = 100
+. $PSScriptRoot\ContrailAPI\Constants.ps1
 
 function Get-AccessTokenFromKeystone {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams",

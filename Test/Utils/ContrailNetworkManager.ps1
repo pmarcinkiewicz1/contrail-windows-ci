@@ -1,4 +1,5 @@
 . $PSScriptRoot\ContrailUtils.ps1
+. $PSScriptRoot\ContrailAPI\GlobalVrouterConfig.ps1
 . $PSScriptRoot\..\TestConfigurationUtils.ps1
 
 class ContrailNetworkManager {
@@ -85,5 +86,13 @@ class ContrailNetworkManager {
             -ContrailUrl $this.ContrailUrl `
             -AuthToken $this.AuthToken `
             -RouterUuid $RouterUuid
+    }
+
+    SetEncapPriorities([String[]] $PrioritiesList) {
+        # PrioritiesList is a list of (in any order) "MPLSoGRE", "MPLSoUDP", "VXLAN".
+        Set-EncapPriorities `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -PrioritiesList $PrioritiesList
     }
 }
