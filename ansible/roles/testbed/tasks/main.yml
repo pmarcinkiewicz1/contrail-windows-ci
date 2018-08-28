@@ -10,11 +10,6 @@
     version: 2.7.13
     state: present
 
-- name: Install vcpython27
-  win_chocolatey:
-    name: vcpython27
-    state: present
-
 - name: Install feature Windows-Containers
   win_feature:
     name: 'Containers'
@@ -61,6 +56,12 @@
     - microsoft/nanoserver
     - microsoft/windowsservercore
     - python:3.6.5
+
+- name: Install VC for Python 2.7
+  win_chocolatey:
+    name: vcpython27
+    version: 9.0.0.30729
+    state: present
 
 - name: Install MS Visual C++ Redist 14
   win_chocolatey:
