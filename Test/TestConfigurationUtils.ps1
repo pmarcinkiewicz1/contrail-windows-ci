@@ -320,6 +320,15 @@ function Wait-RemoteInterfaceIP {
     } | Out-Null
 }
 
+function Get-NodeManagementIP {
+    Param([Parameter(Mandatory = $true)] [PSSessionT] $Session)
+    return Invoke-Command -Session $Session -ScriptBlock { Get-NetIPAddress |
+        Where-Object InterfaceAlias -like "Ethernet0*" |
+        Where-Object AddressFamily -eq IPv4 |
+        Select-Object -ExpandProperty IPAddress
+    }
+}
+
 function Initialize-DriverAndExtension {
     Param (
         [Parameter(Mandatory = $true)] [PSSessionT] $Session,

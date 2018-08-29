@@ -1,4 +1,5 @@
 . $PSScriptRoot\..\..\CIScripts\Common\Aliases.ps1
+. $PSScriptRoot\..\..\CIScripts\Common\Invoke-NativeCommand.ps1
 . $PSScriptRoot\..\PesterLogger\PesterLogger.ps1
 
 function Invoke-MsiExec {
@@ -79,4 +80,36 @@ function Uninstall-DockerDriver {
 
     Write-Log "Uninstalling Docker Driver"
     Invoke-MsiExec -Uninstall -Session $Session -Path "C:\Artifacts\docker-driver.msi"
+}
+
+function Install-Nodemgr {
+    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
+
+    Write-Log "Installing Nodemgr"
+    $Res = Invoke-NativeCommand -Session $Session -AllowNonZero -CaptureOutput -ScriptBlock {
+        Get-ChildItem "C:\Artifacts\nodemgr\*.tar.gz" -Name
+    }
+    $Archives = $Res.Output
+    foreach($A in $Archives) {
+        Write-Log "- (Nodemgr) Installing pip archive $A"
+        Invoke-NativeCommand -Session $Session -ScriptBlock {
+            pip install "C:\Artifacts\nodemgr\$Using:A"
+        }
+    }
+}
+
+function Uninstall-Nodemgr {
+    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
+
+    Write-Log "Uninstalling Nodemgr"
+    $Res = Invoke-NativeCommand -Session $Session -AllowNonZero -CaptureOutput -ScriptBlock {
+        Get-ChildItem "C:\Artifacts\nodemgr\*.tar.gz" -Name
+    }
+    $Archives = $Res.Output
+    foreach($P in $Archives) {
+        Write-Log "- (Nodemgr) Uninstalling pip package $P"
+        Invoke-NativeCommand -Session $Session -ScriptBlock {
+            pip uninstall "C:\Artifacts\nodemgr\$Using:P"
+        }
+    }
 }
