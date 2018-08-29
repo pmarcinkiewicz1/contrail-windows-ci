@@ -126,6 +126,31 @@ function Uninstall-Components {
     Uninstall-Extension -Session $Session
 }
 
+function Get-VrfStats {
+    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
+
+    # NOTE: we are assuming that there will be only one vif with index == 2.
+    #       Indices 0 and 1 are reserved, so the first available is index 2.
+    #       This is consistent - for now. It used to be that only index 0 was reserved, so it may
+    #       change in the future.
+    #       We could get this index by using other utils and doing a bunch of filtering, but
+    #       let's do it when the time comes.
+    $VifIdx = 2
+    $Stats = Invoke-Command -Session $Session -ScriptBlock {
+        $Out = $(vrfstats --get $Using:VifIdx)
+        $PktCountMPLSoUDP = [regex]::new("Udp Mpls Tunnels ([0-9]+)").Match($Out[3]).Groups[1].Value
+        $PktCountMPLSoGRE = [regex]::new("Gre Mpls Tunnels ([0-9]+)").Match($Out[3]).Groups[1].Value
+        $PktCountVXLAN = [regex]::new("Vxlan Tunnels ([0-9]+)").Match($Out[3]).Groups[1].Value
+        return @{
+            MPLSoUDP = $PktCountMPLSoUDP
+            MPLSoGRE = $PktCountMPLSoGRE
+            VXLAN = $PktCountVXLAN
+        }
+    }
+    Write-Log "vrfstats for vif $VifIdx : $Stats"
+    return $Stats
+}
+
 function Start-UDPEchoServerInContainer {
     Param (
         [Parameter(Mandatory=$true)] [PSSessionT] $Session,
@@ -314,6 +339,24 @@ Describe "Tunneling with Agent tests" {
             BeforeEach {
                 $EncapPrioritiesList = @($TunnelingMethod)
                 $ContrailNM.SetEncapPriorities($EncapPrioritiesList)
+            }
+
+            It "Uses specified tunneling method" {
+                if ($TunnelingMethod -eq "VXLAN") {
+                    # Probably a bug here: https://github.com/Juniper/contrail-vrouter/blob/master/dp-core/vr_nexthop.c#L1983
+                    Set-TestInconclusive "Test not performed, because VXLAN doesn't report correctly in vrfstats"
+                }
+
+                $StatsBefore = Get-VrfStats -Session $Sessions[0]
+
+                Test-Ping `
+                    -Session $Sessions[0] `
+                    -SrcContainerName $Container1ID `
+                    -DstContainerName $Container2ID `
+                    -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+
+                $StatsAfter = Get-VrfStats -Session $Sessions[0]
+                $StatsAfter[$TunnelingMethod] | Should BeGreaterThan $StatsBefore[$TunnelingMethod]
             }
 
             It "ICMP - Ping between containers on separate compute nodes succeeds" {
