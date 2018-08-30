@@ -11,4 +11,5 @@ cmdlets = [
     "Start-VBRZip",
     "Find-VBRViEntity",
     "vrfstats",
+    "contrail-nodemgr",
 ]
