@@ -62,9 +62,14 @@
     set_fact:
       script_path: "{{ hostvars['localhost'].script_path }}"
 
+# NOTE: Play is executed serially to avoid MAC conflicts.
+#       MAC conflicts are observed when several virtual machines are deployed at once.
+#       Possibly there is a race condition in vCenter or there is something missing in
+#       provision_vm.py script.
 - hosts: testenv
   gather_facts: no
   any_errors_fatal: true
+  serial: 1
   roles:
   - role: vmware-vm
     action: deploy
