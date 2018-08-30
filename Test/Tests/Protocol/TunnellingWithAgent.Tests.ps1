@@ -147,7 +147,7 @@ function Get-VrfStats {
             VXLAN = $PktCountVXLAN
         }
     }
-    Write-Log "vrfstats for vif $VifIdx : $Stats"
+    Write-Log "vrfstats for vif $VifIdx : $($Stats | Out-String)"
     return $Stats
 }
 
