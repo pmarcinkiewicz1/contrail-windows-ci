@@ -1,22 +1,5 @@
+. $PSScriptRoot\..\DockerNetwork\DockerNetwork.ps1
 . $PSScriptRoot\Constants.ps1
-
-class SubnetConfiguration {
-    [string] $IpPrefix;
-    [int] $IpPrefixLen;
-    [string] $DefaultGateway;
-    [string] $AllocationPoolsStart;
-    [string] $AllocationPoolsEnd;
-
-    SubnetConfiguration([string] $IpPrefix, [int] $IpPrefixLen,
-        [string] $DefaultGateway, [string] $AllocationPoolsStart,
-        [string] $AllocationPoolsEnd) {
-        $this.IpPrefix = $IpPrefix
-        $this.IpPrefixLen = $IpPrefixLen
-        $this.DefaultGateway = $DefaultGateway;
-        $this.AllocationPoolsStart = $AllocationPoolsStart;
-        $this.AllocationPoolsEnd = $AllocationPoolsEnd;
-    }
-}
 
 function Add-ContrailVirtualNetwork {
     Param ([Parameter(Mandatory = $true)] [string] $ContrailUrl,

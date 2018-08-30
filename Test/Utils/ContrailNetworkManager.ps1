@@ -99,4 +99,82 @@ class ContrailNetworkManager {
             -AuthToken $this.AuthToken `
             -PrioritiesList $PrioritiesList
     }
+
+    [String] AddFloatingIpPool([String] $TenantName, [String] $NetworkName, [String] $PoolName) {
+        if (-not $TenantName) {
+            $TenantName = $this.DefaultTenantName
+        }
+
+        return Add-ContrailFloatingIpPool `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -TenantName $TenantName `
+            -NetworkName $NetworkName `
+            -PoolName $PoolName
+    }
+
+    RemoveFloatingIpPool([String] $PoolUuid) {
+        Remove-ContrailFloatingIpPool `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -PoolUuid $PoolUuid
+    }
+
+    [String] AddFloatingIp([String] $PoolUuid,
+                           [String] $IPName,
+                           [String] $IPAddress) {
+        return Add-ContrailFloatingIp `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -PoolUuid $PoolUuid `
+            -IPName $IPName `
+            -IPAddress $IPAddress
+    }
+
+    AssignFloatingIpToAllPortsInNetwork([String] $IpUuid,
+                                        [String] $NetworkUuid) {
+        $PortFqNames = Get-ContrailVirtualNetworkPorts `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -NetworkUuid $NetworkUuid
+
+        Set-ContrailFloatingIpPorts `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -IpUuid $IpUuid `
+            -PortFqNames $PortFqNames
+    }
+
+    RemoveFloatingIp([String] $IpUuid) {
+        Remove-ContrailFloatingIp `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -IpUuid $IpUuid
+    }
+
+    [String] AddPassAllPolicyOnDefaultTenant([String] $Name) {
+        $TenantName = $this.DefaultTenantName
+
+        return Add-ContrailPassAllPolicy `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -TenantName $TenantName `
+            -Name $Name
+    }
+
+    RemovePolicy([String] $Uuid) {
+        Remove-ContrailPolicy `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -Uuid $Uuid
+    }
+
+    AddPolicyToNetwork([String] $PolicyUuid,
+                       [String] $NetworkUuid) {
+        Add-ContrailPolicyToNetwork `
+            -ContrailUrl $this.ContrailUrl `
+            -AuthToken $this.AuthToken `
+            -PolicyUuid $PolicyUuid `
+            -NetworkUuid $NetworkUuid
+    }
 }

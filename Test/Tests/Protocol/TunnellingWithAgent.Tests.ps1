@@ -9,20 +9,20 @@ Param (
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
-. $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
-. $PSScriptRoot\..\..\TestConfigurationUtils.ps1
-. $PSScriptRoot\..\..\Utils\CommonTestCode.ps1
-. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
 . $PSScriptRoot\..\..\PesterHelpers\PesterHelpers.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\PesterLogger\RemoteLogCollector.ps1
+. $PSScriptRoot\..\..\TestConfigurationUtils.ps1
+. $PSScriptRoot\..\..\Utils\CommonTestCode.ps1
+. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Initialize.ps1
+. $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
+. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
+. $PSScriptRoot\..\..\Utils\MultiNode\ContrailMultiNodeProvisioning.ps1
 
-$ContrailNM = $null
 $TCPServerDockerImage = "python-http"
 $Container1ID = "jolly-lumberjack"
 $Container2ID = "juniper-tree"
-$NetworkName = "testnet12"
 $Subnet = [SubnetConfiguration]::new(
     "10.0.5.0",
     24,
@@ -30,6 +30,7 @@ $Subnet = [SubnetConfiguration]::new(
     "10.0.5.19",
     "10.0.5.83"
 )
+$Network = [Network]::New("testnet12", $Subnet)
 
 function Get-MaxIPv4DataSizeForMTU {
     Param ([Parameter(Mandatory=$true)] [Int] $MTU)
@@ -47,25 +48,6 @@ function Get-MaxUDPDataSizeForMTU {
     Param ([Parameter(Mandatory=$true)] [Int] $MTU)
     $UDPHeaderSize = 8
     return $(Get-MaxIPv4DataSizeForMTU -MTU $MTU) - $UDPHeaderSize
-}
-
-function Initialize-ComputeNode {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [SubnetConfiguration] $Subnet
-    )
-
-    Initialize-ComputeServices -Session $Session `
-        -SystemConfig $SystemConfig `
-        -OpenStackConfig $OpenStackConfig `
-        -ControllerConfig $ControllerConfig
-
-    $NetworkID = New-DockerNetwork -Session $Session `
-        -TenantName $ControllerConfig.DefaultProject `
-        -Name $NetworkName `
-        -Subnet "$( $Subnet.IpPrefix )/$( $Subnet.IpPrefixLen )"
-
-    Write-Log "Created network id: $NetworkID"
 }
 
 function Test-Ping {
@@ -102,28 +84,6 @@ function Test-TCP {
     $Output = $Res[0..($Res.length - 2)]
     Write-Log "Web request output: $Output"
     return $Res[-1]
-}
-
-function Install-Components {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    Install-Extension -Session $Session
-    Install-DockerDriver -Session $Session
-    Install-Agent -Session $Session
-    Install-Utils -Session $Session
-}
-
-function Uninstall-Components {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    Uninstall-Utils -Session $Session
-    Uninstall-Agent -Session $Session
-    Uninstall-DockerDriver -Session $Session
-    Uninstall-Extension -Session $Session
 }
 
 function Get-VrfStats {
@@ -338,7 +298,14 @@ Describe "Tunneling with Agent tests" {
         Context "Tunneling $TunnelingMethod" {
             BeforeEach {
                 $EncapPrioritiesList = @($TunnelingMethod)
-                $ContrailNM.SetEncapPriorities($EncapPrioritiesList)
+                $MultiNode.NM.SetEncapPriorities($EncapPrioritiesList)
+
+                [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+                    "PSUseDeclaredVarsMoreThanAssignments",
+                    "Sessions",
+                    Justification="It's actually used in 'It' blocks."
+                )]
+                $Sessions = $MultiNode.Sessions
             }
 
             It "Uses specified tunneling method" {
@@ -440,89 +407,45 @@ Describe "Tunneling with Agent tests" {
     }
 
     BeforeAll {
-        $VMs = Read-TestbedsConfig -Path $TestenvConfFile
-        $OpenStackConfig = Read-OpenStackConfig -Path $TestenvConfFile
-        $ControllerConfig = Read-ControllerConfig -Path $TestenvConfFile
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
-            "PSUseDeclaredVarsMoreThanAssignments",
-            "ContrailNetwork",
-            Justification="It's actually used."
-        )]
-        $SystemConfig = Read-SystemConfig -Path $TestenvConfFile
-
-        $Sessions = New-RemoteSessions -VMs $VMs
-
         Initialize-PesterLogger -OutDir $LogDir
+        $MultiNode = New-MultiNodeSetup -TestenvConfFile $TestenvConfFile
 
-        Write-Log "Installing components on testbeds..."
-        Install-Components -Session $Sessions[0]
-        Install-Components -Session $Sessions[1]
-
-        $ContrailNM = [ContrailNetworkManager]::new($OpenStackConfig, $ControllerConfig)
-        $ContrailNM.EnsureProject($ControllerConfig.DefaultProject)
-
-        $Testbed1Address = $VMs[0].Address
-        $Testbed1Name = $VMs[0].Name
-        Write-Log "Creating virtual router. Name: $Testbed1Name; Address: $Testbed1Address"
-        $VRouter1Uuid = $ContrailNM.AddVirtualRouter($Testbed1Name, $Testbed1Address)
-        Write-Log "Reported UUID of new virtual router: $VRouter1Uuid"
-
-        $Testbed2Address = $VMs[1].Address
-        $Testbed2Name = $VMs[1].Name
-        Write-Log "Creating virtual router. Name: $Testbed2Name; Address: $Testbed2Address"
-        $VRouter2Uuid = $ContrailNM.AddVirtualRouter($Testbed2Name, $Testbed2Address)
-        Write-Log "Reported UUID of new virtual router: $VRouter2Uuid"
-
-        Write-Log "Creating virtual network: $NetworkName"
+        Write-Log "Creating virtual network: $Network.Name"
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
             "PSUseDeclaredVarsMoreThanAssignments",
             "ContrailNetwork",
             Justification="It's actually used."
         )]
-        $ContrailNetwork = $ContrailNM.AddNetwork($null, $NetworkName, $Subnet)
+        $ContrailNetwork = $MultiNode.NM.AddNetwork($null, $Network.Name, $Subnet)
     }
 
     AfterAll {
-        if (-not (Get-Variable Sessions -ErrorAction SilentlyContinue)) { return }
+        if (Get-Variable "MultiNode" -ErrorAction SilentlyContinue) {
+            Write-Log "Deleting virtual network"
+            if (Get-Variable ContrailNetwork -ErrorAction SilentlyContinue) {
+                $MultiNode.NM.RemoveNetwork($ContrailNetwork)
+            }
 
-        if(Get-Variable "VRouter1Uuid" -ErrorAction SilentlyContinue) {
-            Write-Log "Removing virtual router: $VRouter1Uuid"
-            $ContrailNM.RemoveVirtualRouter($VRouter1Uuid)
-            Remove-Variable "VRouter1Uuid"
+            Remove-MultiNodeSetup -MultiNode $MultiNode
+            Remove-Variable "MultiNode"
         }
-        if(Get-Variable "VRouter2Uuid" -ErrorAction SilentlyContinue) {
-            Write-Log "Removing virtual router: $VRouter2Uuid"
-            $ContrailNM.RemoveVirtualRouter($VRouter2Uuid)
-            Remove-Variable "VRouter2Uuid"
-        }
-
-        Write-Log "Uninstalling components from testbeds..."
-        Uninstall-Components -Session $Sessions[0]
-        Uninstall-Components -Session $Sessions[1]
-
-        Write-Log "Deleting virtual network"
-        if (Get-Variable ContrailNetwork -ErrorAction SilentlyContinue) {
-            $ContrailNM.RemoveNetwork($ContrailNetwork)
-        }
-
-        Remove-PSSession $Sessions
     }
 
     BeforeEach {
-        Initialize-ComputeNode -Session $Sessions[0] -Subnet $Subnet
-        Initialize-ComputeNode -Session $Sessions[1] -Subnet $Subnet
+        Initialize-ComputeNode -Session $MultiNode.Sessions[0] -Networks @($Network) -Configs $MultiNode.Configs
+        Initialize-ComputeNode -Session $MultiNode.Sessions[1] -Networks @($Network) -Configs $MultiNode.Configs
 
         Write-Log "Creating containers"
         Write-Log "Creating container: $Container1ID"
         New-Container `
-            -Session $Sessions[0] `
-            -NetworkName $NetworkName `
+            -Session $MultiNode.Sessions[0] `
+            -NetworkName $Network.Name `
             -Name $Container1ID `
             -Image $TCPServerDockerImage
         Write-Log "Creating container: $Container2ID"
         New-Container `
-            -Session $Sessions[1] `
-            -NetworkName $NetworkName `
+            -Session $MultiNode.Sessions[1] `
+            -NetworkName $Network.Name `
             -Name $Container2ID `
             -Image "microsoft/windowsservercore"
 
@@ -533,7 +456,7 @@ Describe "Tunneling with Agent tests" {
             Justification="It's actually used."
         )]
         $Container1NetInfo = Get-RemoteContainerNetAdapterInformation `
-            -Session $Sessions[0] -ContainerID $Container1ID
+            -Session $MultiNode.Sessions[0] -ContainerID $Container1ID
         $IP = $Container1NetInfo.IPAddress
         Write-Log "IP of ${Container1ID}: $IP"
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
@@ -542,12 +465,15 @@ Describe "Tunneling with Agent tests" {
             Justification="It's actually used."
         )]
         $Container2NetInfo = Get-RemoteContainerNetAdapterInformation `
-            -Session $Sessions[1] -ContainerID $Container2ID
+            -Session $MultiNode.Sessions[1] -ContainerID $Container2ID
         $IP = $Container2NetInfo.IPAddress
         Write-Log "IP of ${Container2ID}: $IP"
     }
 
     AfterEach {
+        $Sessions = $MultiNode.Sessions
+        $SystemConfig = $MultiNode.Configs.System
+
         try {
             Merge-Logs -LogSources (
                 (New-ContainerLogSource -Sessions $Sessions[0] -ContainerNames $Container1ID),

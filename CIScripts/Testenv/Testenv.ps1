@@ -31,6 +31,20 @@ class SystemConfig {
     }
 }
 
+class TestenvConfigs {
+    [SystemConfig] $System;
+    [OpenStackConfig] $OpenStack;
+    [ControllerConfig] $Controller;
+
+    TestenvConfigs([SystemConfig] $System,
+                   [OpenStackConfig] $OpenStack,
+                   [ControllerConfig] $Controller) {
+        $this.System = $System;
+        $this.OpenStack = $OpenStack;
+        $this.Controller = $Controller;
+    }
+}
+
 function Read-TestenvFile {
     Param ([Parameter(Mandatory=$true)] [string] $Path)
     if (-not (Test-Path $Path)) {

@@ -159,7 +159,7 @@ function Test-VRouterAgentIntegration {
         if (!$match) {
             throw "pkt0 interface is not injected. EXPECTED: pkt0 injected in vRouter"
         }
-        if ($match.Count > 1) {
+        if ($match.Count -gt 1) {
             throw "more than 1 pkt0 interfaces were injected. EXPECTED: only one pkt0 interface in vRouter"
         }
     }
