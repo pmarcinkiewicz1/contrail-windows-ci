@@ -12,7 +12,7 @@ Initialize-BuildEnvironment -ThirdPartyCache $Env:THIRD_PARTY_CACHE_PATH
 
 $SconsBuildMode = Resolve-BuildMode
 
-$DockerDriverOutputDir = "output/docker_driver"
+$DockerDriverOutputDir = "output/docker-driver"
 $vRouterOutputDir = "output/vrouter"
 $vtestOutputDir = "output/vtest"
 $AgentOutputDir = "output/agent"

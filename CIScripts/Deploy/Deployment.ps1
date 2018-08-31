@@ -28,12 +28,12 @@ function Install-Artifacts {
         New-Item -ItemType Directory -Force C:\Artifacts | Out-Null
     }
 
-    if (Test-NonemptyDir "docker_driver") {
+    if (Test-NonemptyDir "docker-driver") {
         Write-Host "Copying Docker driver installer"
-        Copy-Item -ToSession $Session -Path "docker_driver\docker-driver.msi" -Destination C:\Artifacts\
+        Copy-Item -ToSession $Session -Path "docker-driver\docker-driver.msi" -Destination C:\Artifacts\
 
         Write-Host "Copying Docker driver tests"
-        Copy-Item -ToSession $Session -Path "docker_driver\*.test.exe" -Destination "C:\Artifacts\"
+        Copy-Item -ToSession $Session -Path "docker-driver\*.test.exe" -Destination "C:\Artifacts\"
     }
 
     if (Test-NonemptyDir "agent") {
