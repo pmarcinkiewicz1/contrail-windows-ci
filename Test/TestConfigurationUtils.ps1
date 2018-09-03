@@ -131,7 +131,8 @@ function Start-DockerDriver {
         "-adapter", $AdapterName,
         "-vswitchName", "Layered <adapter>",
         "-logPath", $OldLogPath,
-        "-logLevel", "Debug"
+        "-logLevel", "Debug",
+        "-authMethod", $ControllerConfig.AuthMethod
     )
 
     Invoke-Command -Session $Session -ScriptBlock {

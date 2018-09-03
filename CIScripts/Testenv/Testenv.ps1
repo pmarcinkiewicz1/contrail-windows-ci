@@ -14,6 +14,7 @@ class ControllerConfig {
     [string] $Address
     [int] $RestApiPort
     [string] $DefaultProject
+    [string] $AuthMethod
 
     [string] RestApiUrl() {
         return "http://$( $this.Address ):$( $this.RestApiPort )"

@@ -13,6 +13,8 @@ controller:
   restApiPort: 8082
   # Used by non-multitenancy tests
   defaultProject: ci_tests
+  # Supported auth methods: keystone|noauth
+  authMethod: keystone
 
 testbeds:
 {% for testbed_name in groups['testbed'] %}
