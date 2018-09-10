@@ -10,6 +10,7 @@ if (isBranchUnsupported()) {
     return
 }
 
+
 pipeline {
     agent none
 
@@ -167,7 +168,7 @@ pipeline {
                     environment {
                         TESTBED = credentials('win-testbed')
                         TESTBED_TEMPLATE = "Template-testbed-201808280603"
-                        CONTROLLER_TEMPLATE = "Template-CentOS-7.4-Thin-LinkedClones"
+                        CONTROLLER_TEMPLATE = "Template-CentOS-7.5"
                         TESTENV_MGMT_NETWORK = "VLAN_501_Management"
                         TESTENV_FOLDER = "WINCI/testenvs"
                         VCENTER_DATASTORE_CLUSTER = "WinCI-Datastores-SSD"
