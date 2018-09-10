@@ -103,7 +103,7 @@ pipeline {
                 }
 
                 stage('Static analysis - Windows') {
-                    agent { label 'builder' }
+                    agent { label 'builder-choco-analyzer' }
                     steps {
                         deleteDir()
                         unstash "StaticAnalysis"
