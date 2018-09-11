@@ -21,8 +21,8 @@ pipelines:
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
             - ^stable/queens$
-	    - ^stable/newton$
-	    - ^stable/ocata$
+            - ^stable/newton$
+            - ^stable/ocata$
         - event: change-restored
           branch:
             - ^master$
@@ -35,8 +35,8 @@ pipelines:
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
             - ^stable/queens$
-	    - ^stable/newton$
-	    - ^stable/ocata$
+            - ^stable/newton$
+            - ^stable/ocata$
         - event: comment-added
           branch:
             - ^master$
@@ -50,7 +50,7 @@ pipelines:
             - ^release-3.9-contrail$
             - ^stable/queens$
             - ^stable/newton$
-	    - ^stable/ocata$
+            - ^stable/ocata$
           comment: (?i)recheck(( (?:bug|lp)[\s#:]*(\d+))|( no bug))?(\s+clean)?\s*$
         - event: comment-added
           comment: (?i)recheck windows$
