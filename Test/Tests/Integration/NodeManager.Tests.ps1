@@ -85,7 +85,7 @@ function Start-NodeMgr {
         Justification="Analyzer doesn't understand relation of Pester blocks"
         )]
         $NodeMgrJob = Start-Job -ScriptBlock {
-            contrail-nodemgr --nodetype contrail-vrouter
+            contrail-nodemgr --nodetype contrail-vrouter # allow unknown-functions(contrail-nodemgr)
         }
     }
 }

@@ -1,3 +1,5 @@
+. $PSScriptRoot/../CIScripts/Common/Init.ps1
+
 function Remove-LastBackups {
     Param(
         [Parameter(Mandatory = $true)] [string] $Repository,

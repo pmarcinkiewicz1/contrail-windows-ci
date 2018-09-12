@@ -1,5 +1,7 @@
 . $PSScriptRoot\..\..\CIScripts\Common\Aliases.ps1
 . $PSScriptRoot\..\..\CIScripts\Common\Invoke-NativeCommand.ps1
+. $PSScriptRoot\..\..\CIScripts\Testenv\Testbed.ps1
+. $PSScriptRoot\..\TestConfigurationUtils.ps1
 . $PSScriptRoot\..\PesterLogger\PesterLogger.ps1
 
 function Invoke-MsiExec {

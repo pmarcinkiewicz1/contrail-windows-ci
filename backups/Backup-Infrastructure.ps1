@@ -1,3 +1,5 @@
+. $PSScriptRoot/../CIScripts/Common/Init.ps1
+
 class VMSpec {
     [string] $Name
     [bool] $SupportsQuiesce = $true
