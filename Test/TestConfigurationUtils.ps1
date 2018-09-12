@@ -148,8 +148,10 @@ function Start-DockerDriver {
             $LogPath = Join-Path $LogDir "contrail-windows-docker-driver.log"
             $ErrorActionPreference = "Continue"
 
+            # "Out-File -Append" in contrary to "Add-Content" doesn't require a read lock, so logs can
+            # be read while the process is running
             & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" $Arguments 2>&1 |
-                Add-Content -NoNewline $LogPath
+                Out-File -Append -FilePath $LogPath
         } -ArgumentList $Arguments, $LogDir
     }
 

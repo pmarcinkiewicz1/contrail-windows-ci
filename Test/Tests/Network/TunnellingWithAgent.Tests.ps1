@@ -410,16 +410,25 @@ Describe "Tunneling with Agent tests" {
         Initialize-PesterLogger -OutDir $LogDir
         $MultiNode = New-MultiNodeSetup -TestenvConfFile $TestenvConfFile
 
-        Write-Log "Creating virtual network: $Network.Name"
+        Write-Log "Creating virtual network: $($Network.Name)"
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
             "PSUseDeclaredVarsMoreThanAssignments",
             "ContrailNetwork",
             Justification="It's actually used."
         )]
         $ContrailNetwork = $MultiNode.NM.AddNetwork($null, $Network.Name, $Subnet)
+
+        Initialize-ComputeNode -Session $MultiNode.Sessions[0] -Networks @($Network) -Configs $MultiNode.Configs
+        Initialize-ComputeNode -Session $MultiNode.Sessions[1] -Networks @($Network) -Configs $MultiNode.Configs
     }
 
     AfterAll {
+        $Sessions = $MultiNode.Sessions
+        $SystemConfig = $MultiNode.Configs.System
+        Clear-TestConfiguration -Session $Sessions[0] -SystemConfig $SystemConfig
+        Clear-TestConfiguration -Session $Sessions[1] -SystemConfig $SystemConfig
+        Clear-Logs -LogSources (New-FileLogSource -Path (Get-ComputeLogsPath) -Sessions $Sessions)
+
         if (Get-Variable "MultiNode" -ErrorAction SilentlyContinue) {
             Write-Log "Deleting virtual network"
             if (Get-Variable ContrailNetwork -ErrorAction SilentlyContinue) {
@@ -432,9 +441,6 @@ Describe "Tunneling with Agent tests" {
     }
 
     BeforeEach {
-        Initialize-ComputeNode -Session $MultiNode.Sessions[0] -Networks @($Network) -Configs $MultiNode.Configs
-        Initialize-ComputeNode -Session $MultiNode.Sessions[1] -Networks @($Network) -Configs $MultiNode.Configs
-
         Write-Log "Creating containers"
         Write-Log "Creating container: $Container1ID"
         New-Container `
@@ -472,8 +478,6 @@ Describe "Tunneling with Agent tests" {
 
     AfterEach {
         $Sessions = $MultiNode.Sessions
-        $SystemConfig = $MultiNode.Configs.System
-
         try {
             Merge-Logs -LogSources (
                 (New-ContainerLogSource -Sessions $Sessions[0] -ContainerNames $Container1ID),
@@ -482,11 +486,8 @@ Describe "Tunneling with Agent tests" {
 
             Write-Log "Removing all containers"
             Remove-AllContainers -Sessions $Sessions
-
-            Clear-TestConfiguration -Session $Sessions[0] -SystemConfig $SystemConfig
-            Clear-TestConfiguration -Session $Sessions[1] -SystemConfig $SystemConfig
         } finally {
-            Merge-Logs -LogSources (New-FileLogSource -Path (Get-ComputeLogsPath) -Sessions $Sessions)
+            Merge-Logs -DontCleanUp -LogSources (New-FileLogSource -Path (Get-ComputeLogsPath) -Sessions $Sessions)
         }
     }
 }

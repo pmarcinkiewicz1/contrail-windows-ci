@@ -54,7 +54,7 @@ Describe "RemoteLogCollector" -Tags CI, Unit {
 
         Merge-Logs -LogSources $Source1
 
-        Test-Path $DummyLog1 | Should -Be $false
+        Get-Content $DummyLog1 | Should -Be $null
     }
 
     It "doesn't clean logs in source directory if DontCleanUp flag passed" {
@@ -63,7 +63,7 @@ Describe "RemoteLogCollector" -Tags CI, Unit {
 
         Merge-Logs -DontCleanUp -LogSources $Source1
 
-        Test-Path $DummyLog1 | Should -Be $true
+        Get-Content $DummyLog1 | Should -Not -Be $null
     }
 
     It "tags the messages with file basename" {
