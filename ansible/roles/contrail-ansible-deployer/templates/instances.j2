@@ -38,6 +38,7 @@ contrail_configuration:
   KEYSTONE_AUTH_URL_VERSION: "/v3"
   RABBITMQ_NODE_PORT: 5673
 {% endif %}
+  JVM_EXTRA_OPTS: "-Xms1g -Xmx2g"
 kolla_config:
   kolla_globals:
     network_interface: "{{ network_interface }}"
