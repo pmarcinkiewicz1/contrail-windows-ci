@@ -26,23 +26,21 @@
     include_management_tools: True
     state: present
 
-- name: Install DockerProvider
+- name: Install DockerMsftProvider
   win_psmodule:
-    name: DockerProvider
+    name: DockerMsftProvider
 
 - name: Reboot the system
   win_reboot:
     test_command: powershell.exe 'Get-WindowsFeature'
     pre_reboot_delay: 15
     post_reboot_delay: 15
-  tags:
-    - skip_lint
 
 - name: Wait for reconnection
   wait_for_connection:
 
 - name: Install Docker-EE
-  win_shell: "Install-Package Docker -ProviderName DockerProvider -Force"
+  win_shell: "Install-Package Docker -ProviderName DockerMsftProvider -Force"
 
 - name: Make sure docker is started
   win_service:

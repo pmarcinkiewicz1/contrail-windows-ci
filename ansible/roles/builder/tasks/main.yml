@@ -12,6 +12,45 @@
   include_role:
     name: windows-ntp
 
+- name: Install Windows-Containers feature
+  win_feature:
+    name: Containers
+    state: present
+
+- name: Install feature NET-Framework-Features
+  win_feature:
+    name: 'NET-Framework-Features'
+    state: present
+
+- name: Install Hyper-V feature
+  win_feature:
+    name: Hyper-V
+    include_management_tools: true
+    state: present
+  register: hyperv_installation
+
+- name: Reboot the system
+  win_reboot:
+    pre_reboot_delay: 15
+    post_reboot_delay: 15
+  when: hyperv_installation.reboot_required or hyperv_installation.feature_result.reboot_required
+
+- name: Wait for reconnection
+  wait_for_connection:
+
+- name: Install DockerMsftProvider
+  win_psmodule:
+    name: DockerMsftProvider
+
+- name: Install Docker-EE
+  win_shell: "Install-Package -Name Docker -ProviderName DockerMsftProvider -Force"
+
+- name: Make sure Docker has started
+  win_service:
+    name: Docker
+    state: started
+    start_mode: auto
+
 - name: Install .NET 3.5
   win_feature:
     name: NET-Framework-Core
@@ -136,12 +175,6 @@
     name: nuget.commandline
     version: 4.5.1
     state: present
-
-- name: Install PowerShell Community Extensions (PSCX)
-  win_psmodule:
-    name: Pscx
-    state: present
-    allow_clobber: yes
 
 - name: Install PSScriptAnalyzer
   win_chocolatey:
