@@ -38,7 +38,7 @@ if ($NothingToBuild -or $CopyDisabledArtifacts) {
         }
 
         $Job.StepQuiet("Copying $($Item.Name)", {
-            Copy-Item $Item.FullName -Destination "$OutputRootDirectory\" -Recurse -Container -Force
+            Copy-Item $Item.FullName -Destination "$OutputRootDirectory\" -Recurse -Force
         })
     }
 
@@ -56,7 +56,7 @@ if (Test-Path Env:UPLOAD_ARTIFACTS) {
         Set-Location ($Diskname + ":\")
         New-Item -Name $Subdir -ItemType directory
         Pop-Location
-        Copy-Item ($OutputRootDirectory + "\*") -Destination ("$DiskName" + ":\" + $Subdir) -Recurse -Container
+        Copy-Item ($OutputRootDirectory + "\*") -Destination ("$DiskName" + ":\" + $Subdir) -Recurse
     }
 }
 
