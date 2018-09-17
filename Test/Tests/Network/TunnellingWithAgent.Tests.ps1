@@ -15,6 +15,7 @@ Param (
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
 . $PSScriptRoot\..\..\Utils\CommonTestCode.ps1
 . $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\Network\Connectivity.ps1
 . $PSScriptRoot\..\..\Utils\ComputeNode\Initialize.ps1
 . $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
 . $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
@@ -50,42 +51,6 @@ function Get-MaxUDPDataSizeForMTU {
     return $(Get-MaxIPv4DataSizeForMTU -MTU $MTU) - $UDPHeaderSize
 }
 
-function Test-Ping {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [String] $SrcContainerName,
-        [Parameter(Mandatory=$true)] [String] $DstContainerName,
-        [Parameter(Mandatory=$true)] [String] $DstContainerIP,
-        [Parameter(Mandatory=$false)] [Int] $BufferSize = 32
-    )
-
-    Write-Log "Container $SrcContainerName is pinging $DstContainerName..."
-    $Res = Invoke-Command -Session $Session -ScriptBlock {
-        docker exec $Using:SrcContainerName powershell `
-            "ping -l $Using:BufferSize $Using:DstContainerIP; `$LASTEXITCODE;"
-    }
-    $Output = $Res[0..($Res.length - 2)]
-    Write-Log "Ping output: $Output"
-    return $Res[-1]
-}
-
-function Test-TCP {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [String] $SrcContainerName,
-        [Parameter(Mandatory=$true)] [String] $DstContainerName,
-        [Parameter(Mandatory=$true)] [String] $DstContainerIP
-    )
-
-    Write-Log "Container $SrcContainerName is sending HTTP request to $DstContainerName..."
-    $Res = Invoke-Command -Session $Session -ScriptBlock {
-        docker exec $Using:SrcContainerName powershell "Invoke-WebRequest -Uri http://${Using:DstContainerIP}:8080/ -UseBasicParsing -ErrorAction Continue; `$LASTEXITCODE"
-    }
-    $Output = $Res[0..($Res.length - 2)]
-    Write-Log "Web request output: $Output"
-    return $Res[-1]
-}
-
 function Get-VrfStats {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
 
@@ -109,170 +74,6 @@ function Get-VrfStats {
     }
     Write-Log "vrfstats for vif $VifIdx : $($Stats | Out-String)"
     return $Stats
-}
-
-function Start-UDPEchoServerInContainer {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [String] $ContainerName,
-        [Parameter(Mandatory=$true)] [Int16] $ServerPort,
-        [Parameter(Mandatory=$true)] [Int16] $ClientPort
-    )
-    $UDPEchoServerCommand = ( `
-    '$SendPort = {0};' + `
-    '$RcvPort = {1};' + `
-    '$IPEndpoint = New-Object System.Net.IPEndPoint([IPAddress]::Any, $RcvPort);' + `
-    '$RemoteIPEndpoint = New-Object System.Net.IPEndPoint([IPAddress]::Any, 0);' + `
-    '$UDPSocket = New-Object System.Net.Sockets.UdpClient;' + `
-    '$UDPSocket.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true);' + `
-    '$UDPSocket.Client.Bind($IPEndpoint);' + `
-    'while($true) {{' + `
-    '    try {{' + `
-    '        $Payload = $UDPSocket.Receive([ref]$RemoteIPEndpoint);' + `
-    '        $RemoteIPEndpoint.Port = $SendPort;' + `
-    '        $UDPSocket.Send($Payload, $Payload.Length, $RemoteIPEndpoint);' + `
-    '        \"Received message and sent it to: $RemoteIPEndpoint.\" | Out-String;' + `
-    '    }} catch {{ Write-Output $_.Exception; continue }}' + `
-    '}}') -f $ClientPort, $ServerPort
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
-            "PSUseDeclaredVarsMoreThanAssignments",
-            "UDPEchoServerJob",
-            Justification="It's actually used."
-        )]
-        $UDPEchoServerJob = Start-Job -ScriptBlock {
-            param($ContainerName, $UDPEchoServerCommand)
-            docker exec $ContainerName powershell "$UDPEchoServerCommand"
-        } -ArgumentList $Using:ContainerName, $Using:UDPEchoServerCommand
-    }
-}
-
-function Stop-EchoServerInContainer {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    $Output = Invoke-Command -Session $Session -ScriptBlock {
-        $UDPEchoServerJob | Stop-Job | Out-Null
-        $Output = Receive-Job -Job $UDPEchoServerJob
-        return $Output
-    }
-
-    Write-Log "Output from UDP echo server running in remote session: $Output"
-}
-
-function Start-UDPListenerInContainer {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [String] $ContainerName,
-        [Parameter(Mandatory=$true)] [Int16] $ListenerPort
-    )
-    $UDPListenerCommand = ( `
-    '$RemoteIPEndpoint = New-Object System.Net.IPEndPoint([IPAddress]::Any, 0);' + `
-    '$UDPRcvSocket = New-Object System.Net.Sockets.UdpClient {0};' + `
-    '$Payload = $UDPRcvSocket.Receive([ref]$RemoteIPEndpoint);' + `
-    '[Text.Encoding]::UTF8.GetString($Payload)') -f $ListenerPort
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
-            "PSUseDeclaredVarsMoreThanAssignments",
-            "UDPListenerJob",
-            Justification="It's actually used."
-        )]
-        $UDPListenerJob = Start-Job -ScriptBlock {
-            param($ContainerName, $UDPListenerCommand)
-            & docker exec $ContainerName powershell "$UDPListenerCommand"
-        } -ArgumentList $Using:ContainerName, $Using:UDPListenerCommand
-    }
-}
-
-function Stop-UDPListenerInContainerAndFetchResult {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    $Message = Invoke-Command -Session $Session -ScriptBlock {
-        $UDPListenerJob | Wait-Job -Timeout 30 | Out-Null
-        $ReceivedMessage = Receive-Job -Job $UDPListenerJob
-        return $ReceivedMessage
-    }
-    Write-Log "UDP listener output from remote session: $Message"
-    return $Message
-}
-
-function Send-UDPFromContainer {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [String] $ContainerName,
-        [Parameter(Mandatory=$true)] [String] $Message,
-        [Parameter(Mandatory=$true)] [String] $ListenerIP,
-        [Parameter(Mandatory=$true)] [Int16] $ListenerPort,
-        [Parameter(Mandatory=$true)] [Int16] $NumberOfAttempts,
-        [Parameter(Mandatory=$true)] [Int16] $WaitSeconds
-    )
-    $UDPSendCommand = (
-    '$EchoServerAddress = New-Object System.Net.IPEndPoint([IPAddress]::Parse(\"{0}\"), {1});' + `
-    '$UDPSenderSocket = New-Object System.Net.Sockets.UdpClient 0;' + `
-    '$Payload = [Text.Encoding]::UTF8.GetBytes(\"{2}\");' + `
-    '1..{3} | ForEach-Object {{' + `
-    '    $UDPSenderSocket.Send($Payload, $Payload.Length, $EchoServerAddress);' + `
-    '    Start-Sleep -Seconds {4};' + `
-    '}}') -f $ListenerIP, $ListenerPort, $Message, $NumberOfAttempts, $WaitSeconds
-
-    $Output = Invoke-Command -Session $Session -ScriptBlock {
-        docker exec $Using:ContainerName powershell "$Using:UDPSendCommand"
-    }
-    Write-Log "Send UDP output from remote session: $Output"
-}
-
-function Test-UDP {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session1,
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session2,
-        [Parameter(Mandatory=$true)] [String] $Container1Name,
-        [Parameter(Mandatory=$true)] [String] $Container2Name,
-        [Parameter(Mandatory=$true)] [String] $Container1IP,
-        [Parameter(Mandatory=$true)] [String] $Container2IP,
-        [Parameter(Mandatory=$true)] [String] $Message,
-        [Parameter(Mandatory=$false)] [Int16] $UDPServerPort = 1111,
-        [Parameter(Mandatory=$false)] [Int16] $UDPClientPort = 2222
-    )
-
-    Write-Log "Starting UDP Echo server on container $Container1Name ..."
-    Start-UDPEchoServerInContainer `
-        -Session $Session1 `
-        -ContainerName $Container1Name `
-        -ServerPort $UDPServerPort `
-        -ClientPort $UDPClientPort
-
-    Write-Log "Starting UDP listener on container $Container2Name..."
-    Start-UDPListenerInContainer `
-        -Session $Session2 `
-        -ContainerName $Container2Name `
-        -ListenerPort $UDPClientPort
-
-    Write-Log "Sending UDP packet from container $Container2Name..."
-    Send-UDPFromContainer `
-        -Session $Session2 `
-        -ContainerName $Container2Name `
-        -Message $Message `
-        -ListenerIP $Container1IP `
-        -ListenerPort $UDPServerPort `
-        -NumberOfAttempts 10 `
-        -WaitSeconds 1
-
-    Write-Log "Fetching results from listener job..."
-    $ReceivedMessage = Stop-UDPListenerInContainerAndFetchResult -Session $Session2
-    Stop-EchoServerInContainer -Session $Session1
-
-    Write-Log "Sent message: $Message"
-    Write-Log "Received message: $ReceivedMessage"
-    if ($ReceivedMessage -eq $Message) {
-        return $true
-    } else {
-        return $false
-    }
 }
 
 Describe "Tunneling with Agent tests" {
@@ -320,7 +121,7 @@ Describe "Tunneling with Agent tests" {
                     -Session $Sessions[0] `
                     -SrcContainerName $Container1ID `
                     -DstContainerName $Container2ID `
-                    -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+                    -DstIP $Container2NetInfo.IPAddress | Should Be 0
 
                 $StatsAfter = Get-VrfStats -Session $Sessions[0]
                 $StatsAfter[$TunnelingMethod] | Should BeGreaterThan $StatsBefore[$TunnelingMethod]
@@ -331,13 +132,13 @@ Describe "Tunneling with Agent tests" {
                     -Session $Sessions[0] `
                     -SrcContainerName $Container1ID `
                     -DstContainerName $Container2ID `
-                    -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+                    -DstIP $Container2NetInfo.IPAddress | Should Be 0
 
                 Test-Ping `
                     -Session $Sessions[1] `
                     -SrcContainerName $Container2ID `
                     -DstContainerName $Container1ID `
-                    -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+                    -DstIP $Container1NetInfo.IPAddress | Should Be 0
             }
 
             It "TCP - HTTP connection between containers on separate compute nodes succeeds" {
@@ -345,19 +146,18 @@ Describe "Tunneling with Agent tests" {
                     -Session $Sessions[1] `
                     -SrcContainerName $Container2ID `
                     -DstContainerName $Container1ID `
-                    -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+                    -DstIP $Container1NetInfo.IPAddress | Should Be 0
             }
 
             It "UDP - sending message between containers on separate compute nodes succeeds" {
                 $MyMessage = "We are Tungsten Fabric. We come in peace."
 
                 Test-UDP `
-                    -Session1 $Sessions[0] `
-                    -Session2 $Sessions[1] `
-                    -Container1Name $Container1ID `
-                    -Container2Name $Container2ID `
-                    -Container1IP $Container1NetInfo.IPAddress `
-                    -Container2IP $Container2NetInfo.IPAddress `
+                    -ListenerContainerSession $Sessions[0] `
+                    -ListenerContainerName $Container1ID `
+                    -ListenerContainerIP $Container1NetInfo.IPAddress `
+                    -ClientContainerSession $Sessions[1] `
+                    -ClientContainerName $Container2ID `
                     -Message $MyMessage | Should Be $true
             }
 
@@ -378,7 +178,7 @@ Describe "Tunneling with Agent tests" {
                             -Session $Sessions[$ContainerIdx] `
                             -SrcContainerName $SrcContainers[$ContainerIdx] `
                             -DstContainerName $DstContainers[$ContainerIdx] `
-                            -DstContainerIP $DstIPs[$ContainerIdx] `
+                            -DstIP $DstIPs[$ContainerIdx] `
                             -BufferSize $BufferSize | Should Be 0
                     }
                 }
@@ -391,18 +191,17 @@ Describe "Tunneling with Agent tests" {
                 $MessageLargerAfterTunneling = "a" * $($MsgFragmentationThreshold - 1)
                 foreach ($Message in @($MessageLargerBeforeTunneling, $MessageLargerAfterTunneling)) {
                     Test-UDP `
-                        -Session1 $Sessions[0] `
-                        -Session2 $Sessions[1] `
-                        -Container1Name $Container1ID `
-                        -Container2Name $Container2ID `
-                        -Container1IP $Container1NetInfo.IPAddress `
-                        -Container2IP $Container2NetInfo.IPAddress `
+                        -ListenerContainerSession $Sessions[0] `
+                        -ListenerContainerName $Container1ID `
+                        -ListenerContainerIP $Container1NetInfo.IPAddress `
+                        -ClientContainerSession $Sessions[1] `
+                        -ClientContainerName $Container2ID `
                         -Message $Message | Should Be $true
                 }
             }
 
-            # NOTE: There is no TCPoIP fragmentation test, because it auto-adjusts frame size, so
-            #       it would always pass.
+            # NOTE: There is no TCPoIP fragmentation test, because it auto-adjusts segment size,
+            #       so it would always pass.
         }
     }
 
