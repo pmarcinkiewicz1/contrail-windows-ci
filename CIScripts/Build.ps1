@@ -101,7 +101,7 @@ try {
         )
         Invoke-ContainersBuild -WorkDir $ContainersWorkDir `
             -ContainersAttributes $ContainersAttributes `
-            -ContainerTag "$Env:ZUUL_BRANCH-$Env:BUILD_NUMBER" `
+            -ContainerTag "$Env:ZUUL_BRANCH-$Env:DOCKER_BUILD_NUMBER" `
             -Registry $Env:DOCKER_REGISTRY
     }
 } finally {
