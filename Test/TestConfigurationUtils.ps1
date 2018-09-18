@@ -4,8 +4,8 @@
 . $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\Utils\CommonTestCode.ps1
 . $PSScriptRoot\Utils\DockerImageBuild.ps1
+# . $PSScriptRoot\Utils\NetAdapterInfo\RemoteHost.ps1
 . $PSScriptRoot\PesterLogger\PesterLogger.ps1
 
 $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS = 60
