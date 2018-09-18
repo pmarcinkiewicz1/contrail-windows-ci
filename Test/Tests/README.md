@@ -21,4 +21,4 @@
 
 ## CI Selfcheck
 
-To run CI Selfcheck please see [this document](../../../SELFCHECK.md).
+To run CI Selfcheck please see [this document](../../SELFCHECK.md).

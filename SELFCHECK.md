@@ -1,6 +1,6 @@
 # CI Selfcheck
 
-CI has a set of unit and integration tests, called 'selfcheck'.
+CI has a set of unit and integration tests, called 'CI selfcheck'.
 
 ## Requirements
 
