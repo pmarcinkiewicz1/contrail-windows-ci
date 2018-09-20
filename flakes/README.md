@@ -1,6 +1,6 @@
 # Adding new flakiness patterns
 
-1. Add an regular expression to `patterns.txt`
+1. Add a regular expression to `patterns.txt`
 
 2. Add a test in `tests` directory:
    The test comprises two files: 

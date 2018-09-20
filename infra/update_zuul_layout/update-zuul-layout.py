@@ -1,11 +1,16 @@
-print("Update Zuul layout file with NOOPs for unused projects - starting...")
-
 import urllib.request
 import json
 import sys
 import re
+import argparse
 
-layout_file = "roles/zuul/files/layout.yaml"
+parser = argparse.ArgumentParser()
+parser.add_argument("layout_file", type=str, help="Path to zuul layout file")
+args = parser.parse_args()
+
+print("Update Zuul layout file with NOOPs for unused projects - starting...")
+
+layout_file = args.layout_file
 gerrit_server = "review.opencontrail.org"
 special_delimiter_line = \
         "# AUTOMATICALLY GENERATED NOOPs BELOW - DO NOT MODIFY THESE LINES MANUALLY"

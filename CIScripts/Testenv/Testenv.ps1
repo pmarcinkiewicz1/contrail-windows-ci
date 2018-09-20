@@ -14,6 +14,7 @@ class ControllerConfig {
     [string] $Address
     [int] $RestApiPort
     [string] $DefaultProject
+    [string] $AuthMethod
 
     [string] RestApiUrl() {
         return "http://$( $this.Address ):$( $this.RestApiPort )"
@@ -28,6 +29,20 @@ class SystemConfig {
 
     [string] VMSwitchName() {
         return "Layered " + $this.AdapterName
+    }
+}
+
+class TestenvConfigs {
+    [SystemConfig] $System;
+    [OpenStackConfig] $OpenStack;
+    [ControllerConfig] $Controller;
+
+    TestenvConfigs([SystemConfig] $System,
+                   [OpenStackConfig] $OpenStack,
+                   [ControllerConfig] $Controller) {
+        $this.System = $System;
+        $this.OpenStack = $OpenStack;
+        $this.Controller = $Controller;
     }
 }
 

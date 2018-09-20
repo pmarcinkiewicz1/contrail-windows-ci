@@ -4,6 +4,7 @@
 . $PSScriptRoot\Common\Components.ps1
 . $PSScriptRoot\Build\BuildFunctions.ps1
 . $PSScriptRoot\Build\BuildMode.ps1
+. $PSScriptRoot\Build\Containers.ps1
 
 
 $Job = [Job]::new("Build")
@@ -12,12 +13,13 @@ Initialize-BuildEnvironment -ThirdPartyCache $Env:THIRD_PARTY_CACHE_PATH
 
 $SconsBuildMode = Resolve-BuildMode
 
-$DockerDriverOutputDir = "output/docker_driver"
+$DockerDriverOutputDir = "output/docker-driver"
 $vRouterOutputDir = "output/vrouter"
 $vtestOutputDir = "output/vtest"
 $AgentOutputDir = "output/agent"
 $NodemgrOutputDir = "output/nodemgr"
 $DllsOutputDir = "output/dlls"
+$ContainersWorkDir = "output/containers"
 $LogsDir = "logs"
 $SconsTestsLogsDir = "unittests-logs"
 
@@ -28,6 +30,7 @@ $Directories = @(
     $AgentOutputDir,
     $NodemgrOutputDir,
     $DllsOutputDir,
+    $ContainersWorkDir,
     $LogsDir,
     $SconsTestsLogsDir
 )
@@ -83,6 +86,23 @@ try {
 
     if ($SconsBuildMode -eq "debug") {
         Copy-DebugDlls -OutputPath $DllsOutputDir
+    }
+
+    if (Test-Path Env:DOCKER_REGISTRY) {
+        $ContainersAttributes = @(
+            [ContainerAttributes]::New("vrouter", @(
+                $vRouterOutputDir,
+                $AgentOutputDir,
+                $NodemgrOutputDir
+            )),
+            [ContainerAttributes]::New("docker-driver", @(
+                $DockerDriverOutputDir
+            ))
+        )
+        Invoke-ContainersBuild -WorkDir $ContainersWorkDir `
+            -ContainersAttributes $ContainersAttributes `
+            -ContainerTag "$Env:ZUUL_BRANCH-$Env:DOCKER_BUILD_NUMBER" `
+            -Registry $Env:DOCKER_REGISTRY
     }
 } finally {
     $testDirs = Get-ChildItem ".\build\$SconsBuildMode" -Directory

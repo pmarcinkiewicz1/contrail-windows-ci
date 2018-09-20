@@ -28,12 +28,12 @@ function Install-Artifacts {
         New-Item -ItemType Directory -Force C:\Artifacts | Out-Null
     }
 
-    if (Test-NonemptyDir "docker_driver") {
+    if (Test-NonemptyDir "docker-driver") {
         Write-Host "Copying Docker driver installer"
-        Copy-Item -ToSession $Session -Path "docker_driver\docker-driver.msi" -Destination C:\Artifacts\
+        Copy-Item -ToSession $Session -Path "docker-driver\docker-driver.msi" -Destination C:\Artifacts\
 
         Write-Host "Copying Docker driver tests"
-        Copy-Item -ToSession $Session -Path "docker_driver\*.test.exe" -Destination "C:\Artifacts\"
+        Copy-Item -ToSession $Session -Path "docker-driver\*.test.exe" -Destination "C:\Artifacts\"
     }
 
     if (Test-NonemptyDir "agent") {
@@ -55,6 +55,11 @@ function Install-Artifacts {
             Import-Certificate -CertStoreLocation Cert:\LocalMachine\Root\ "C:\Artifacts\vRouter.cer" | Out-Null # TODO: Remove after JW-798
             Import-Certificate -CertStoreLocation Cert:\LocalMachine\TrustedPublisher\ "C:\Artifacts\vRouter.cer" | Out-Null # TODO: Remove after JW-798
         }
+    }
+
+    if (Test-NonemptyDir "nodemgr") {
+        Write-Host "Copying Node Manager"
+        Copy-Item -ToSession $Session -Path "nodemgr" -Destination C:\Artifacts\ -Recurse
     }
 
     if (Test-Path "dlls") {

@@ -1,10 +1,16 @@
 # CI Selfcheck
 
-CI has a set of unit and integration tests, called 'selfcheck'.
+CI has a set of unit and integration tests, called 'CI selfcheck'.
 
 ## Requirements
 
+### Tests
+
 Requires PowerShell test framework: `Pester 4.2.0`. See [this link](https://github.com/pester/Pester/wiki/Installation-and-Update) for installation instructions.
+
+### Static analysis (optional)
+
+Requires at least `PSScriptAnalyzer 1.17.0`. See [this link](https://github.com/PowerShell/PSScriptAnalyzer) for installation instructions.
 
 ## To run unit tests and static analysis of CI:
 

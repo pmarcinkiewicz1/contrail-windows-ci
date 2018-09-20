@@ -8,6 +8,7 @@ To run all available linters, execute the following command in this directory:
 
 ## Powershell Script Analyzer (PSSCriptAnalyzer)
 
+Requires at least `PSScriptAnalyzer 1.17.0`. See [this link](https://github.com/PowerShell/PSScriptAnalyzer) for installation instructions.
 To run using our settings:
 
 ```

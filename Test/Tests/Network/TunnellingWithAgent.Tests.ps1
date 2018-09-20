@@ -9,19 +9,20 @@ Param (
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
-. $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
-. $PSScriptRoot\..\..\TestConfigurationUtils.ps1
-. $PSScriptRoot\..\..\Utils\CommonTestCode.ps1
-. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
 . $PSScriptRoot\..\..\PesterHelpers\PesterHelpers.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\PesterLogger\RemoteLogCollector.ps1
+. $PSScriptRoot\..\..\TestConfigurationUtils.ps1
+. $PSScriptRoot\..\..\Utils\CommonTestCode.ps1
+. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Initialize.ps1
+. $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
+. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
+. $PSScriptRoot\..\..\Utils\MultiNode\ContrailMultiNodeProvisioning.ps1
 
 $TCPServerDockerImage = "python-http"
 $Container1ID = "jolly-lumberjack"
 $Container2ID = "juniper-tree"
-$NetworkName = "testnet12"
 $Subnet = [SubnetConfiguration]::new(
     "10.0.5.0",
     24,
@@ -29,6 +30,7 @@ $Subnet = [SubnetConfiguration]::new(
     "10.0.5.19",
     "10.0.5.83"
 )
+$Network = [Network]::New("testnet12", $Subnet)
 
 function Get-MaxIPv4DataSizeForMTU {
     Param ([Parameter(Mandatory=$true)] [Int] $MTU)
@@ -46,25 +48,6 @@ function Get-MaxUDPDataSizeForMTU {
     Param ([Parameter(Mandatory=$true)] [Int] $MTU)
     $UDPHeaderSize = 8
     return $(Get-MaxIPv4DataSizeForMTU -MTU $MTU) - $UDPHeaderSize
-}
-
-function Initialize-ComputeNode {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [SubnetConfiguration] $Subnet
-    )
-
-    Initialize-ComputeServices -Session $Session `
-        -SystemConfig $SystemConfig `
-        -OpenStackConfig $OpenStackConfig `
-        -ControllerConfig $ControllerConfig
-
-    $NetworkID = New-DockerNetwork -Session $Session `
-        -TenantName $ControllerConfig.DefaultProject `
-        -Name $NetworkName `
-        -Subnet "$( $Subnet.IpPrefix )/$( $Subnet.IpPrefixLen )"
-
-    Write-Log "Created network id: $NetworkID"
 }
 
 function Test-Ping {
@@ -103,54 +86,29 @@ function Test-TCP {
     return $Res[-1]
 }
 
-function Install-Components {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
+function Get-VrfStats {
+    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
 
-    Install-Extension -Session $Session
-    Install-DockerDriver -Session $Session
-    Install-Agent -Session $Session
-    Install-Utils -Session $Session
-}
-
-function Uninstall-Components {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    Uninstall-Utils -Session $Session
-    Uninstall-Agent -Session $Session
-    Uninstall-DockerDriver -Session $Session
-    Uninstall-Extension -Session $Session
-}
-
-function Test-MPLSoGRE {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    $VrfStats = Get-VrfStats -Session $Session
-    if (($VrfStats.MplsGrePktCount -eq 0) -or ($VrfStats.MplsUdpPktCount -ne 0) -or ($VrfStats.VxlanPktCount -ne 0)) {
-        Write-Log "Tunnel usage statistics: Udp = $($VrfStats.MplsUdpPktCount), Gre = $($VrfStats.MplsGrePktCount), Vxlan = $($VrfStats.VxlanPktCount)"
-        return $false
-    } else {
-        return $true
+    # NOTE: we are assuming that there will be only one vif with index == 2.
+    #       Indices 0 and 1 are reserved, so the first available is index 2.
+    #       This is consistent - for now. It used to be that only index 0 was reserved, so it may
+    #       change in the future.
+    #       We could get this index by using other utils and doing a bunch of filtering, but
+    #       let's do it when the time comes.
+    $VifIdx = 2
+    $Stats = Invoke-Command -Session $Session -ScriptBlock {
+        $Out = $(vrfstats --get $Using:VifIdx)
+        $PktCountMPLSoUDP = [regex]::new("Udp Mpls Tunnels ([0-9]+)").Match($Out[3]).Groups[1].Value
+        $PktCountMPLSoGRE = [regex]::new("Gre Mpls Tunnels ([0-9]+)").Match($Out[3]).Groups[1].Value
+        $PktCountVXLAN = [regex]::new("Vxlan Tunnels ([0-9]+)").Match($Out[3]).Groups[1].Value
+        return @{
+            MPLSoUDP = $PktCountMPLSoUDP
+            MPLSoGRE = $PktCountMPLSoGRE
+            VXLAN = $PktCountVXLAN
+        }
     }
-}
-
-function Test-MPLSoUDP {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session
-    )
-
-    $VrfStats = Get-VrfStats -Session $Session
-    if (($VrfStats.MplsGrePktCount -ne 0) -or ($VrfStats.MplsUdpPktCount -eq 0) -or ($VrfStats.VxlanPktCount -ne 0)) {
-        Write-Log "Tunnel usage statistics: Udp = $($VrfStats.MplsUdpPktCount), Gre = $($VrfStats.MplsGrePktCount), Vxlan = $($VrfStats.VxlanPktCount)"
-        return $false
-    } else {
-        return $true
-    }
+    Write-Log "vrfstats for vif $VifIdx : $($Stats | Out-String)"
+    return $Stats
 }
 
 function Start-UDPEchoServerInContainer {
@@ -317,106 +275,82 @@ function Test-UDP {
     }
 }
 
-Describe "Tunnelling with Agent tests" {
-    Context "Tunneling" {
-        It "ICMP - Ping between containers on separate compute nodes succeeds" {
-            Test-Ping `
-                -Session $Sessions[0] `
-                -SrcContainerName $Container1ID `
-                -DstContainerName $Container2ID `
-                -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+Describe "Tunneling with Agent tests" {
 
-            Test-Ping `
-                -Session $Sessions[1] `
-                -SrcContainerName $Container2ID `
-                -DstContainerName $Container1ID `
-                -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+    #
+    #               !!!!!! IMPORTANT: DEBUGGING/DEVELOPING THESE TESTS !!!!!!
+    #
+    # tl;dr: "fresh" controller uses MPLSoGRE by default. But when someone logs in via WebUI for
+    # the first time, it changes to MPLSoUDP. You have been warned.
+    #
+    # Logging into WebUI for the first time is known to cause problems.
+    # When someone logs into webui for the first time, it suddenly realizes that its default
+    # encap priorities list is different than the one on the controller. It causes a cascade of
+    # requests from WebUI to config node, that will change the tunneling method.
+    #
+    # When debugging, make sure that the encapsulation method specified in webui
+    # (under Configure/Infrastructure/Global Config/Virtual Routers/Encapsulation Priority Order)
+    # matches the one that is applied using ContrailNM in code below (Config node REST API).
+    # Do it especially when logging in via WebUI for the first time.
+    #
 
-            # TODO: Uncomment these checks once we can actually control tunneling type.
-            # Test-MPLSoGRE -Session $Sessions[0] | Should Be $true
-            # Test-MPLSoGRE -Session $Sessions[1] | Should Be $true
-        }
+    foreach($TunnelingMethod in @("MPLSoGRE", "MPLSoUDP", "VXLAN")) {
+        Context "Tunneling $TunnelingMethod" {
+            BeforeEach {
+                $EncapPrioritiesList = @($TunnelingMethod)
+                $MultiNode.NM.SetEncapPriorities($EncapPrioritiesList)
 
-        It "TCP - HTTP connection between containers on separate compute nodes succeeds" {
-            Test-TCP `
-                -Session $Sessions[1] `
-                -SrcContainerName $Container2ID `
-                -DstContainerName $Container1ID `
-                -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
-
-            # TODO: Uncomment these checks once we can actually control tunneling type.
-            # Test-MPLSoGRE -Session $Sessions[0] | Should Be $true
-            # Test-MPLSoGRE -Session $Sessions[1] | Should Be $true
-        }
-
-        It "UDP" {
-            $MyMessage = "We are Tungsten Fabric. We come in peace."
-
-            Test-UDP `
-                -Session1 $Sessions[0] `
-                -Session2 $Sessions[1] `
-                -Container1Name $Container1ID `
-                -Container2Name $Container2ID `
-                -Container1IP $Container1NetInfo.IPAddress `
-                -Container2IP $Container2NetInfo.IPAddress `
-                -Message $MyMessage | Should Be $true
-
-            # TODO: Uncomment these checks once we can actually control tunneling type.
-            # Test-MPLSoGRE -Session $Sessions[0] | Should Be $true
-            # Test-MPLSoGRE -Session $Sessions[1] | Should Be $true
-        }
-    }
-
-    Context "MPLSoUDP" {
-        # TODO: Enable this test once we can actually control tunneling type.
-        It "ICMP - Ping between containers on separate compute nodes succeeds (MPLSoUDP)" -Pending {
-            Test-Ping `
-                -Session $Sessions[0] `
-                -SrcContainerName $Container1ID `
-                -DstContainerName $Container2ID `
-                -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
-
-            Test-Ping `
-                -Session $Sessions[1] `
-                -SrcContainerName $Container2ID `
-                -DstContainerName $Container1ID `
-                -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
-
-            Test-MPLSoUDP -Session $Sessions[0] | Should Be $true
-            Test-MPLSoUDP -Session $Sessions[1] | Should Be $true
-        }
-    }
-
-    Context "IP fragmentation" {
-        It "ICMP - Ping with big buffer succeeds" {
-            $Container1MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
-            $Container2MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container2NetInfo.MtuSize
-
-            $SrcContainers = @($Container1ID, $Container2ID)
-            $DstContainers = @($Container2ID, $Container1ID)
-            $DstIPs = @($Container2NetInfo.IPAddress, $Container1NetInfo.IPAddress)
-            $BufferSizes = @($Container1MsgFragmentationThreshold, $Container2MsgFragmentationThreshold)
-
-            foreach ($ContainerIdx in @(0, 1)) {
-                $BufferSizeLargerBeforeTunnelling = $BufferSizes[$ContainerIdx] + 1
-                $BufferSizeLargerAfterTunnelling = $BufferSizes[$ContainerIdx] - 1
-                foreach ($BufferSize in @($BufferSizeLargerBeforeTunnelling, $BufferSizeLargerAfterTunnelling)) {
-                    Test-Ping `
-                        -Session $Sessions[$ContainerIdx] `
-                        -SrcContainerName $SrcContainers[$ContainerIdx] `
-                        -DstContainerName $DstContainers[$ContainerIdx] `
-                        -DstContainerIP $DstIPs[$ContainerIdx] `
-                        -BufferSize $BufferSize | Should Be 0
-                }
+                [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+                    "PSUseDeclaredVarsMoreThanAssignments",
+                    "Sessions",
+                    Justification="It's actually used in 'It' blocks."
+                )]
+                $Sessions = $MultiNode.Sessions
             }
-        }
 
-        It "UDP - sending big buffer succeeds" {
-            $MsgFragmentationThreshold = Get-MaxUDPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
+            It "Uses specified tunneling method" {
+                if ($TunnelingMethod -eq "VXLAN") {
+                    # Probably a bug here: https://github.com/Juniper/contrail-vrouter/blob/master/dp-core/vr_nexthop.c#L1983
+                    Set-TestInconclusive "Test not performed, because VXLAN doesn't report correctly in vrfstats"
+                }
 
-            $MessageLargerBeforeTunnelling = "a" * $($MsgFragmentationThreshold + 1)
-            $MessageLargerAfterTunnelling = "a" * $($MsgFragmentationThreshold - 1)
-            foreach ($Message in @($MessageLargerBeforeTunnelling, $MessageLargerAfterTunnelling)) {
+                $StatsBefore = Get-VrfStats -Session $Sessions[0]
+
+                Test-Ping `
+                    -Session $Sessions[0] `
+                    -SrcContainerName $Container1ID `
+                    -DstContainerName $Container2ID `
+                    -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+
+                $StatsAfter = Get-VrfStats -Session $Sessions[0]
+                $StatsAfter[$TunnelingMethod] | Should BeGreaterThan $StatsBefore[$TunnelingMethod]
+            }
+
+            It "ICMP - Ping between containers on separate compute nodes succeeds" {
+                Test-Ping `
+                    -Session $Sessions[0] `
+                    -SrcContainerName $Container1ID `
+                    -DstContainerName $Container2ID `
+                    -DstContainerIP $Container2NetInfo.IPAddress | Should Be 0
+
+                Test-Ping `
+                    -Session $Sessions[1] `
+                    -SrcContainerName $Container2ID `
+                    -DstContainerName $Container1ID `
+                    -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+            }
+
+            It "TCP - HTTP connection between containers on separate compute nodes succeeds" {
+                Test-TCP `
+                    -Session $Sessions[1] `
+                    -SrcContainerName $Container2ID `
+                    -DstContainerName $Container1ID `
+                    -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
+            }
+
+            It "UDP - sending message between containers on separate compute nodes succeeds" {
+                $MyMessage = "We are Tungsten Fabric. We come in peace."
+
                 Test-UDP `
                     -Session1 $Sessions[0] `
                     -Session2 $Sessions[1] `
@@ -424,95 +358,94 @@ Describe "Tunnelling with Agent tests" {
                     -Container2Name $Container2ID `
                     -Container1IP $Container1NetInfo.IPAddress `
                     -Container2IP $Container2NetInfo.IPAddress `
-                    -Message $Message | Should Be $true
+                    -Message $MyMessage | Should Be $true
             }
+
+            It "IP fragmentation - ICMP - Ping with big buffer succeeds" {
+                $Container1MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
+                $Container2MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container2NetInfo.MtuSize
+
+                $SrcContainers = @($Container1ID, $Container2ID)
+                $DstContainers = @($Container2ID, $Container1ID)
+                $DstIPs = @($Container2NetInfo.IPAddress, $Container1NetInfo.IPAddress)
+                $BufferSizes = @($Container1MsgFragmentationThreshold, $Container2MsgFragmentationThreshold)
+
+                foreach ($ContainerIdx in @(0, 1)) {
+                    $BufferSizeLargerBeforeTunneling = $BufferSizes[$ContainerIdx] + 1
+                    $BufferSizeLargerAfterTunneling = $BufferSizes[$ContainerIdx] - 1
+                    foreach ($BufferSize in @($BufferSizeLargerBeforeTunneling, $BufferSizeLargerAfterTunneling)) {
+                        Test-Ping `
+                            -Session $Sessions[$ContainerIdx] `
+                            -SrcContainerName $SrcContainers[$ContainerIdx] `
+                            -DstContainerName $DstContainers[$ContainerIdx] `
+                            -DstContainerIP $DstIPs[$ContainerIdx] `
+                            -BufferSize $BufferSize | Should Be 0
+                    }
+                }
+            }
+
+            It "IP fragmentation - UDP - sending big buffer succeeds" {
+                $MsgFragmentationThreshold = Get-MaxUDPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
+
+                $MessageLargerBeforeTunneling = "a" * $($MsgFragmentationThreshold + 1)
+                $MessageLargerAfterTunneling = "a" * $($MsgFragmentationThreshold - 1)
+                foreach ($Message in @($MessageLargerBeforeTunneling, $MessageLargerAfterTunneling)) {
+                    Test-UDP `
+                        -Session1 $Sessions[0] `
+                        -Session2 $Sessions[1] `
+                        -Container1Name $Container1ID `
+                        -Container2Name $Container2ID `
+                        -Container1IP $Container1NetInfo.IPAddress `
+                        -Container2IP $Container2NetInfo.IPAddress `
+                        -Message $Message | Should Be $true
+                }
+            }
+
+            # NOTE: There is no TCPoIP fragmentation test, because it auto-adjusts frame size, so
+            #       it would always pass.
         }
     }
 
     BeforeAll {
-        $VMs = Read-TestbedsConfig -Path $TestenvConfFile
-        $OpenStackConfig = Read-OpenStackConfig -Path $TestenvConfFile
-        $ControllerConfig = Read-ControllerConfig -Path $TestenvConfFile
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
-            "PSUseDeclaredVarsMoreThanAssignments",
-            "ContrailNetwork",
-            Justification="It's actually used."
-        )]
-        $SystemConfig = Read-SystemConfig -Path $TestenvConfFile
-
-        $Sessions = New-RemoteSessions -VMs $VMs
-
         Initialize-PesterLogger -OutDir $LogDir
+        $MultiNode = New-MultiNodeSetup -TestenvConfFile $TestenvConfFile
 
-        Write-Log "Installing components on testbeds..."
-        Install-Components -Session $Sessions[0]
-        Install-Components -Session $Sessions[1]
-
-        $ContrailNM = [ContrailNetworkManager]::new($OpenStackConfig, $ControllerConfig)
-        $ContrailNM.EnsureProject($ControllerConfig.DefaultProject)
-
-        $Testbed1Address = $VMs[0].Address
-        $Testbed1Name = $VMs[0].Name
-        Write-Log "Creating virtual router. Name: $Testbed1Name; Address: $Testbed1Address"
-        $VRouter1Uuid = $ContrailNM.AddVirtualRouter($Testbed1Name, $Testbed1Address)
-        Write-Log "Reported UUID of new virtual router: $VRouter1Uuid"
-
-        $Testbed2Address = $VMs[1].Address
-        $Testbed2Name = $VMs[1].Name
-        Write-Log "Creating virtual router. Name: $Testbed2Name; Address: $Testbed2Address"
-        $VRouter2Uuid = $ContrailNM.AddVirtualRouter($Testbed2Name, $Testbed2Address)
-        Write-Log "Reported UUID of new virtual router: $VRouter2Uuid"
-
-        Write-Log "Creating virtual network: $NetworkName"
+        Write-Log "Creating virtual network: $Network.Name"
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
             "PSUseDeclaredVarsMoreThanAssignments",
             "ContrailNetwork",
             Justification="It's actually used."
         )]
-        $ContrailNetwork = $ContrailNM.AddNetwork($null, $NetworkName, $Subnet)
+        $ContrailNetwork = $MultiNode.NM.AddNetwork($null, $Network.Name, $Subnet)
     }
 
     AfterAll {
-        if (-not (Get-Variable Sessions -ErrorAction SilentlyContinue)) { return }
+        if (Get-Variable "MultiNode" -ErrorAction SilentlyContinue) {
+            Write-Log "Deleting virtual network"
+            if (Get-Variable ContrailNetwork -ErrorAction SilentlyContinue) {
+                $MultiNode.NM.RemoveNetwork($ContrailNetwork)
+            }
 
-        if(Get-Variable "VRouter1Uuid" -ErrorAction SilentlyContinue) {
-            Write-Log "Removing virtual router: $VRouter1Uuid"
-            $ContrailNM.RemoveVirtualRouter($VRouter1Uuid)
-            Remove-Variable "VRouter1Uuid"
+            Remove-MultiNodeSetup -MultiNode $MultiNode
+            Remove-Variable "MultiNode"
         }
-        if(Get-Variable "VRouter2Uuid" -ErrorAction SilentlyContinue) {
-            Write-Log "Removing virtual router: $VRouter2Uuid"
-            $ContrailNM.RemoveVirtualRouter($VRouter2Uuid)
-            Remove-Variable "VRouter2Uuid"
-        }
-
-        Write-Log "Uninstalling components from testbeds..."
-        Uninstall-Components -Session $Sessions[0]
-        Uninstall-Components -Session $Sessions[1]
-
-        Write-Log "Deleting virtual network"
-        if (Get-Variable ContrailNetwork -ErrorAction SilentlyContinue) {
-            $ContrailNM.RemoveNetwork($ContrailNetwork)
-        }
-
-        Remove-PSSession $Sessions
     }
 
     BeforeEach {
-        Initialize-ComputeNode -Session $Sessions[0] -Subnet $Subnet
-        Initialize-ComputeNode -Session $Sessions[1] -Subnet $Subnet
+        Initialize-ComputeNode -Session $MultiNode.Sessions[0] -Networks @($Network) -Configs $MultiNode.Configs
+        Initialize-ComputeNode -Session $MultiNode.Sessions[1] -Networks @($Network) -Configs $MultiNode.Configs
 
         Write-Log "Creating containers"
         Write-Log "Creating container: $Container1ID"
         New-Container `
-            -Session $Sessions[0] `
-            -NetworkName $NetworkName `
+            -Session $MultiNode.Sessions[0] `
+            -NetworkName $Network.Name `
             -Name $Container1ID `
             -Image $TCPServerDockerImage
         Write-Log "Creating container: $Container2ID"
         New-Container `
-            -Session $Sessions[1] `
-            -NetworkName $NetworkName `
+            -Session $MultiNode.Sessions[1] `
+            -NetworkName $Network.Name `
             -Name $Container2ID `
             -Image "microsoft/windowsservercore"
 
@@ -523,7 +456,7 @@ Describe "Tunnelling with Agent tests" {
             Justification="It's actually used."
         )]
         $Container1NetInfo = Get-RemoteContainerNetAdapterInformation `
-            -Session $Sessions[0] -ContainerID $Container1ID
+            -Session $MultiNode.Sessions[0] -ContainerID $Container1ID
         $IP = $Container1NetInfo.IPAddress
         Write-Log "IP of ${Container1ID}: $IP"
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
@@ -532,12 +465,15 @@ Describe "Tunnelling with Agent tests" {
             Justification="It's actually used."
         )]
         $Container2NetInfo = Get-RemoteContainerNetAdapterInformation `
-            -Session $Sessions[1] -ContainerID $Container2ID
+            -Session $MultiNode.Sessions[1] -ContainerID $Container2ID
         $IP = $Container2NetInfo.IPAddress
         Write-Log "IP of ${Container2ID}: $IP"
     }
 
     AfterEach {
+        $Sessions = $MultiNode.Sessions
+        $SystemConfig = $MultiNode.Configs.System
+
         try {
             Merge-Logs -LogSources (
                 (New-ContainerLogSource -Sessions $Sessions[0] -ContainerNames $Container1ID),

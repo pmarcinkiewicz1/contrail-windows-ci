@@ -10,11 +10,6 @@
     version: 2.7.13
     state: present
 
-- name: Install vcpython27
-  win_chocolatey:
-    name: vcpython27
-    state: present
-
 - name: Install feature Windows-Containers
   win_feature:
     name: 'Containers'
@@ -31,23 +26,21 @@
     include_management_tools: True
     state: present
 
-- name: Install DockerProvider
+- name: Install DockerMsftProvider
   win_psmodule:
-    name: DockerProvider
+    name: DockerMsftProvider
 
 - name: Reboot the system
   win_reboot:
     test_command: powershell.exe 'Get-WindowsFeature'
     pre_reboot_delay: 15
     post_reboot_delay: 15
-  tags:
-    - skip_lint
 
 - name: Wait for reconnection
   wait_for_connection:
 
 - name: Install Docker-EE
-  win_shell: "Install-Package Docker -ProviderName DockerProvider -Force"
+  win_shell: "Install-Package Docker -ProviderName DockerMsftProvider -Force"
 
 - name: Make sure docker is started
   win_service:
@@ -61,6 +54,12 @@
     - microsoft/nanoserver
     - microsoft/windowsservercore
     - python:3.6.5
+
+- name: Install VC for Python 2.7
+  win_chocolatey:
+    name: vcpython27
+    version: 9.0.0.30729
+    state: present
 
 - name: Install MS Visual C++ Redist 14
   win_chocolatey:

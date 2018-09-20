@@ -10,6 +10,7 @@ if (isBranchUnsupported()) {
     return
 }
 
+
 pipeline {
     agent none
 
@@ -39,7 +40,6 @@ pipeline {
                 stash name: "Monitoring", includes: "monitoring/**"
                 stash name: "Flakes", includes: "flakes/**"
                 stash name: "Test", includes: "Test/**"
-                stash name: "Utility", includes: "utility/**"
             }
         }
 
@@ -167,8 +167,8 @@ pipeline {
 
                     environment {
                         TESTBED = credentials('win-testbed')
-                        TESTBED_TEMPLATE = "Template-testbed-201808130708"
-                        CONTROLLER_TEMPLATE = "Template-CentOS-7.4-Thin-LinkedClones"
+                        TESTBED_TEMPLATE = "Template-testbed-201808280603"
+                        CONTROLLER_TEMPLATE = "Template-CentOS-7.5"
                         TESTENV_MGMT_NETWORK = "VLAN_501_Management"
                         TESTENV_FOLDER = "WINCI/testenvs"
                         VCENTER_DATASTORE_CLUSTER = "WinCI-Datastores-SSD"
@@ -299,7 +299,7 @@ pipeline {
                 script {
                     deleteDir()
 
-                    unstash 'Utility'
+                    unstash 'CIScripts'
 
                     def relLogsDstDir = logsRelPathBasedOnTriggerSource(env.JOB_NAME,
                         env.BUILD_NUMBER, env.ZUUL_UUID)
@@ -308,10 +308,8 @@ pipeline {
 
                     dir('to_publish') {
                         unstash 'processedTestReports'
-                        // NOTE: We have to preserve two index files, because:
-                        //       - `Index.html` is referenced in other html files
-                        //       - `index.html` can be loaded by default when entering `pretty_test_report`
-                        shellCommand('../utility/fix-test-report-index-files.sh', ['./TestReports'])
+
+                        shellCommand("${env.WORKSPACE}/CIScripts/LogserverUtils/fix-test-report-index-files.sh", ['./TestReports'])
 
                         dir('TestReports') {
                             tryUnstash('ddriverJUnitLogs')
@@ -320,7 +318,7 @@ pipeline {
                         tryUnstash('unitTestsLogs')
 
                         createCompressedLogFile(env.JOB_NAME, env.BUILD_NUMBER, logFilename)
-                        shellCommand('../utility/split-log-into-stages.sh', [logFilename])
+                        shellCommand("${env.WORKSPACE}/CIScripts/LogserverUtils/split-log-into-stages.sh", [logFilename])
 
                         def auth = sshAuthority(env.LOG_SERVER_USER, env.LOG_SERVER)
                         def dst = logsDirInFilesystem(env.LOG_ROOT_DIR, env.LOG_SERVER_FOLDER, relLogsDstDir)
