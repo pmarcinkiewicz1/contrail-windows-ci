@@ -7,11 +7,19 @@ Param(
 )
 
 function Test-RunningAsAdmin {
-    $Principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    $Principal = New-Object Security.Principal.WindowsPrincipal(
+        [Security.Principal.WindowsIdentity]::GetCurrent())
     $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 Describe "Diagnostic check" {
+    BeforeAll {
+        # $TestbedConfigs = Read-TestbedsConfig -Path $TestenvConfFile
+        # $OpenStackConfig = Read-OpenStackConfig -Path $TestenvConfFile
+        # $ControllerConfig = Read-ControllerConfig -Path $TestenvConfFile
+        # $SystemConfig = Read-SystemConfig -Path $TestenvConfFile
+    }
+
     Context "vRouter forwarding extension" {
         It "is running" {
 
@@ -26,11 +34,15 @@ Describe "Diagnostic check" {
         }
 
         It "vhost vif is present" {
-
+            $VHostIfAlias = Get-NetAdapter -InterfaceAlias "vEthernet (HNSTransparent)" `
+                | Select -ExpandProperty ifName
+            vif.exe --list | Select-String $VHostIfAlias | Should Not BeNullOrEmpty
         }
 
         It "physical vif is present" {
-
+            $PhysIfAlias = Get-NetAdapter -InterfaceAlias "Ethernet1" `
+                | Select -ExpandProperty ifName
+            vif.exe --list | Select-String $PhysIfAlias | Should Not BeNullOrEmpty
         }
 
         It "pkt0 vif is present" {
@@ -56,7 +68,8 @@ Describe "Diagnostic check" {
         }
 
         It "is running" {
-            Get-Service "ContrailAgent" | Select-Object -ExpandProperty Status | Should Be "Running"
+            Get-Service "ContrailAgent" | Select-Object -ExpandProperty Status `
+                | Should Be "Running"
         }
         
         It "serves an Agent API on TCP socket" {
@@ -75,17 +88,20 @@ Describe "Diagnostic check" {
         }
 
         It "is running" {
-            Get-Service "contrail-vrouter-nodemgr" | Select-Object -ExpandProperty Status | Should Be "Running"
+            Get-Service "contrail-vrouter-nodemgr" | Select-Object -ExpandProperty Status `
+                | Should Be "Running"
         }
     }
 
     Context "CNM plugin" {
         It "is running" {
-            Get-Service "contrail-docker-driver" | Select-Object -ExpandProperty Status | Should Be "Running"
+            Get-Service "contrail-docker-driver" | Select-Object -ExpandProperty Status `
+                | Should Be "Running"
         }
 
         It "serves a named pipe API server" {
-            Get-ChildItem "//./pipe/" | Where-Object Name -EQ "Contrail" | Should Not BeNullOrEmpty
+            Get-ChildItem "//./pipe/" | Where-Object Name -EQ "Contrail" `
+                | Should Not BeNullOrEmpty
         }
 
         It "responds to GetCapabilities CNM request" {
@@ -93,7 +109,8 @@ Describe "Diagnostic check" {
         }
 
         It "has created a root Contrail HNS network in Docker" {
-            Get-ContainerNetwork | Where-Object Name -EQ "ContrailRootNetwork" | Should Not BeNullOrEmpty
+            Get-ContainerNetwork | Where-Object Name -EQ "ContrailRootNetwork" `
+                | Should Not BeNullOrEmpty
         }
     }
 
@@ -116,18 +133,32 @@ Describe "Diagnostic check" {
         It "firewall is turned off" {
             # Optional test
         }
+    }
 
+    Context "vRouter certificate" {
+        # TODO: figure out how to test for these
         It "test signing is ON" {
             # Optional test
         }
+
+        It "vRouter test certificate is present" {
+            # Optional test
+        }
+
+        It "vRouter actual certificate is present" {
+            # Optional test
+        }
     }
+
     Context "IP fragmentation workaround" {
         It "WinNAT is not running" {
-            Get-Service "WinNAT" | Select-Object -ExpandProperty "Status" | Should Be "Stopped"
+            Get-Service "WinNAT" | Select-Object -ExpandProperty "Status" `
+                | Should Be "Stopped"
         }
 
         It "WinNAT autostart is disabled" {
-            Get-Service "WinNAT" | Select-Object -ExpandProperty "Starttype" | Should Be "Disabled"
+            Get-Service "WinNAT" | Select-Object -ExpandProperty "Starttype" `
+                | Should Be "Disabled"
         }
 
         It "there is no NAT network" {
@@ -137,7 +168,8 @@ Describe "Diagnostic check" {
 
     Context "Docker" {
         It "is running" {
-            Get-Service "Docker" | Select-Object -ExpandProperty "Status" | Should Be "Running"
+            Get-Service "Docker" | Select-Object -ExpandProperty "Status" `
+                | Should Be "Running"
         }
 
         It "there are no Contrail networks in Docker with incorrect driver" {
