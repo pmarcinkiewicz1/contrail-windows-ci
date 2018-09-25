@@ -6,27 +6,41 @@ Param(
     [Parameter(Mandatory = $false)] [string] $TestenvConfFile
 )
 
+. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
+
 function Test-RunningAsAdmin {
     $Principal = New-Object Security.Principal.WindowsPrincipal(
         [Security.Principal.WindowsIdentity]::GetCurrent())
     $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+$SystemConfig = $null
+
 Describe "Diagnostic check" {
     BeforeAll {
         # $TestbedConfigs = Read-TestbedsConfig -Path $TestenvConfFile
         # $OpenStackConfig = Read-OpenStackConfig -Path $TestenvConfFile
         # $ControllerConfig = Read-ControllerConfig -Path $TestenvConfFile
-        # $SystemConfig = Read-SystemConfig -Path $TestenvConfFile
+        $SystemConfig = Read-SystemConfig -Path $TestenvConfFile
     }
 
     Context "vRouter forwarding extension" {
         It "is running" {
-
+            if (-not(Test-RunningAsAdmin)) {
+                Set-TestInconclusive "Test requires administrator priveleges"
+            }
+            $Sw = Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
+            $State | Get-VMSwitchExtension -Name "vRouter*" | Select -ExpandProperty "Enabled"
+            $State | Should Be $true
         }
 
         It "is enabled" {
-
+            if (-not(Test-RunningAsAdmin)) {
+                Set-TestInconclusive "Test requires administrator priveleges"
+            }
+            $Sw = Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
+            $State | Get-VMSwitchExtension -Name "vRouter*" | Select -ExpandProperty "Running"
+            $State | Should Be $true
         }
 
         It "didn't assert or panic lately" {
@@ -34,13 +48,13 @@ Describe "Diagnostic check" {
         }
 
         It "vhost vif is present" {
-            $VHostIfAlias = Get-NetAdapter -InterfaceAlias "vEthernet (HNSTransparent)" `
+            $VHostIfAlias = Get-NetAdapter -InterfaceAlias $SystemConfig.VHostName `
                 | Select -ExpandProperty ifName
             vif.exe --list | Select-String $VHostIfAlias | Should Not BeNullOrEmpty
         }
 
         It "physical vif is present" {
-            $PhysIfAlias = Get-NetAdapter -InterfaceAlias "Ethernet1" `
+            $PhysIfAlias = Get-NetAdapter -InterfaceAlias $SystemConfig.AdapterName `
                 | Select -ExpandProperty ifName
             vif.exe --list | Select-String $PhysIfAlias | Should Not BeNullOrEmpty
         }
@@ -119,7 +133,7 @@ Describe "Diagnostic check" {
             if (-not(Test-RunningAsAdmin)) {
                 Set-TestInconclusive "Test requires administrator priveleges"
             }
-            Get-VMSwitch "Layered*" | Should Not BeNullOrEmpty
+            Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
         }
 
         It "can ping Control node from Control interface" {
