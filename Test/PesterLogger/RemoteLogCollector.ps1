@@ -74,10 +74,10 @@ class FileLogSource : LogSource {
             $Files = Get-ChildItem -Path $What -ErrorAction SilentlyContinue
             foreach ($File in $Files) {
                 try {
-                    Remove-Item $File
+                    Clear-Content $File -Force
                 }
                 catch {
-                    Write-Warning "$File was not removed due to $_"
+                    Write-Warning "$File was not cleared due to $_"
                 }
             }
         }
@@ -186,4 +186,11 @@ function Merge-Logs {
     }
 
     Write-Log ("=" * 100)
+}
+
+function Clear-Logs {
+    Param([Parameter(Mandatory = $true)] [LogSource[]] $LogSources)
+    foreach ($LogSource in $LogSources) {
+        $LogSource.ClearContent()
+    }
 }
