@@ -8,10 +8,14 @@ Param(
 
 . $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 
-function Test-RunningAsAdmin {
+function Assert-RunningAsAdmin {
     $Principal = New-Object Security.Principal.WindowsPrincipal(
         [Security.Principal.WindowsIdentity]::GetCurrent())
-    $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $IsAdmin = $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+    if (-not($IsAdmin)) {
+        Set-TestInconclusive "Test requires administrator privileges"
+    }
 }
 
 $SystemConfig = $null
@@ -26,9 +30,7 @@ Describe "Diagnostic check" {
 
     Context "vRouter forwarding extension" {
         It "is running" {
-            if (-not(Test-RunningAsAdmin)) {
-                Set-TestInconclusive "Test requires administrator priveleges"
-            }
+            Assert-RunningAsAdmin
             $SwitchName = "Layered?$($SystemConfig.AdapterName)"
             Get-VMSwitchExtension -Name "vRouter*" -VMSwitchName $SwitchName `
                 | Select -ExpandProperty "Running" `
@@ -36,9 +38,7 @@ Describe "Diagnostic check" {
         }
 
         It "is enabled" {
-            if (-not(Test-RunningAsAdmin)) {
-                Set-TestInconclusive "Test requires administrator priveleges"
-            }
+            Assert-RunningAsAdmin
             $SwitchName = "Layered?$($SystemConfig.AdapterName)"
             Get-VMSwitchExtension -Name "vRouter*" -VMSwitchName $SwitchName `
                 | Select -ExpandProperty "Enabled" `
@@ -132,9 +132,7 @@ Describe "Diagnostic check" {
 
     Context "Compute node" {
         It "VMSwitch exists" {
-            if (-not(Test-RunningAsAdmin)) {
-                Set-TestInconclusive "Test requires administrator priveleges"
-            }
+            Assert-RunningAsAdmin
             Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
         }
 
@@ -148,6 +146,14 @@ Describe "Diagnostic check" {
 
         It "firewall is turned off" {
             # Optional test
+            foreach ($Prof in @("Domain", "Public", "Private")) {
+                $State = Get-NetFirewallProfile -Profile $Prof | Select -ExpandProperty Enabled
+                if ($State) {
+                    $Msg = "Firewall is enabled for profile $Prof - it may break IP fragmentation."
+                    Set-TestInconclusive $Msg
+                }
+            }
+            $true | Should Be $true
         }
     }
 
@@ -198,6 +204,7 @@ Describe "Diagnostic check" {
         }
 
         It "there are no orphaned Contrail networks (present in HNS and absent in Docker)" {
+            Assert-RunningAsAdmin
             $OwnedNetworks = docker network ls --quiet --filter 'driver=Contrail'
             $ActualHNSNetworks = Get-ContainerNetwork | Where Name -Like "Contrail:*" `
                 | Select -ExpandProperty Name
