@@ -11,6 +11,6 @@ function Get-TentacleRepos {
     })
 
     $Job.Step("Unpacking tentacle repositories", {
-        Expand-Archive -Path repos.zip
+        Expand-Archive -Path repos.zip -DestinationPath .
     })
 }
