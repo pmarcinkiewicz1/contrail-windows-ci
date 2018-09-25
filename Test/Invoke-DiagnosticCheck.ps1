@@ -29,18 +29,20 @@ Describe "Diagnostic check" {
             if (-not(Test-RunningAsAdmin)) {
                 Set-TestInconclusive "Test requires administrator priveleges"
             }
-            $Sw = Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
-            $State | Get-VMSwitchExtension -Name "vRouter*" | Select -ExpandProperty "Enabled"
-            $State | Should Be $true
+            $SwitchName = "Layered?$($SystemConfig.AdapterName)"
+            Get-VMSwitchExtension -Name "vRouter*" -VMSwitchName $SwitchName `
+                | Select -ExpandProperty "Running" `
+                | Should Be $true
         }
 
         It "is enabled" {
             if (-not(Test-RunningAsAdmin)) {
                 Set-TestInconclusive "Test requires administrator priveleges"
             }
-            $Sw = Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
-            $State | Get-VMSwitchExtension -Name "vRouter*" | Select -ExpandProperty "Running"
-            $State | Should Be $true
+            $SwitchName = "Layered?$($SystemConfig.AdapterName)"
+            Get-VMSwitchExtension -Name "vRouter*" -VMSwitchName $SwitchName `
+                | Select -ExpandProperty "Enabled" `
+                | Should Be $true
         }
 
         It "didn't assert or panic lately" {
