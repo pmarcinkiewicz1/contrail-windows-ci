@@ -40,11 +40,11 @@ Describe "Diagnostic check" {
 
     Context "vRouter Agent" {
         It "is present" {
-            Get-Service "ContrailAgent" | Should -Not -BeNullOrEmpty
+            Get-Service "ContrailAgent" | Should Not BeNullOrEmpty
         }
 
         It "is running" {
-            Get-Service "ContrailAgent" | Select-Object -ExpandProperty Status | Should -Be "Running"
+            Get-Service "ContrailAgent" | Select-Object -ExpandProperty Status | Should Be "Running"
         }
         
         It "serves an Agent API on TCP socket" {
@@ -58,17 +58,17 @@ Describe "Diagnostic check" {
 
     Context "Node manager" {
         It "is present" {
-            Get-Service "contrail-vrouter-nodemgr" | Should -Not -BeNullOrEmpty
+            Get-Service "contrail-vrouter-nodemgr" | Should Not BeNullOrEmpty
         }
 
         It "is running" {
-            Get-Service "contrail-vrouter-nodemgr" | Select-Object -ExpandProperty Status | Should -Be "Running"
+            Get-Service "contrail-vrouter-nodemgr" | Select-Object -ExpandProperty Status | Should Be "Running"
         }
     }
 
     Context "CNM plugin" {
         It "is running" {
-            Get-Service "contrail-docker-driver" | Select-Object -ExpandProperty Status | Should -Be "Running"
+            Get-Service "contrail-docker-driver" | Select-Object -ExpandProperty Status | Should Be "Running"
         }
 
         It "serves a named pipe API server" {
@@ -80,7 +80,8 @@ Describe "Diagnostic check" {
         }
 
         It "has created a root Contrail HNS network" {
-
+            $Raw = docker network ls --quiet --filter 'name=ContrailRootNetwork'
+            $Raw | Should Not BeNullOrEmpty
         }
     }
 
@@ -89,15 +90,7 @@ Describe "Diagnostic check" {
             if (-not(Test-RunningAsAdmin)) {
                 Set-TestInconclusive "Test requires administrator priveleges"
             }
-            Get-VMSwitch "Layered*" | Should -Not -BeNullOrEmpty
-        }
-
-        It "WinNAT is disabled" {
-
-        }
-
-        It "there is no WinNAT network" {
-
+            Get-VMSwitch "Layered*" | Should Not BeNullOrEmpty
         }
 
         It "can ping Control node from Control interface" {
@@ -108,15 +101,31 @@ Describe "Diagnostic check" {
             # Optional test
         }
     }
+    Context "IP fragmentation workaround" {
+        It "WinNAT is not running" {
+            Get-Service "WinNAT" | Select-Object -ExpandProperty "Status" | Should Be "Stopped"
+        }
+
+        It "WinNAT autostart is disabled" {
+            Get-Service "WinNAT" | Select-Object -ExpandProperty "Starttype" | Should Be "Disabled"
+        }
+
+        It "there is no NAT network" {
+            Get-NetNat | Should BeNullOrEmpty
+        }
+    }
 
     Context "Docker" {
         It "is running" {
-            Get-Service "Docker" | Select-Object -ExpandProperty "Status" | Should -Be "Running"
+            Get-Service "Docker" | Select-Object -ExpandProperty "Status" | Should Be "Running"
         }
 
         It "there are no orphaned Contrail networks" {
             # After reboot, networks handled by 'Contrail' plugin will instead have 'transparent'
             # plugin assigned. Make sure there are no networks like this. 
+            $Raw = docker network ls --filter 'driver=transparent'
+            $Matches =  $Raw | Select-String "Contrail:.*"
+            $Matches.Matches.Count | Should Be 0
         }
     }
 }
