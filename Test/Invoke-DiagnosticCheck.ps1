@@ -34,7 +34,19 @@ Describe "Diagnostic check" {
         }
 
         It "pkt0 vif is present" {
+            vif.exe --list | Select-String "pkt0" | Should Not BeNullOrEmpty
+        }
 
+        It "opens ksync device" {
+            # Get-ChildItem "//./vrouterKsync" | Should Not BeNullOrEmpty
+        }
+
+        It "opens pkt0 device" {
+            # Get-ChildItem "//./vrouterBridge" | Should Not BeNullOrEmpty
+        }
+
+        It "opens flow0 device" {
+            # Get-ChildItem "//./vrouterFlow" | Should Not BeNullOrEmpty
         }
     }
 
@@ -48,7 +60,8 @@ Describe "Diagnostic check" {
         }
         
         It "serves an Agent API on TCP socket" {
-
+            $Result = Test-NetConnection -ComputerName localhost -Port 9091
+            $Result.TcpTestSucceeded | Should Be $true
         }
 
         It "didn't assert or panic lately" {
@@ -72,16 +85,15 @@ Describe "Diagnostic check" {
         }
 
         It "serves a named pipe API server" {
-
+            Get-ChildItem "//./pipe/" | Where-Object Name -EQ "Contrail" | Should Not BeNullOrEmpty
         }
 
         It "responds to GetCapabilities CNM request" {
 
         }
 
-        It "has created a root Contrail HNS network" {
-            $Raw = docker network ls --quiet --filter 'name=ContrailRootNetwork'
-            $Raw | Should Not BeNullOrEmpty
+        It "has created a root Contrail HNS network in Docker" {
+            Get-ContainerNetwork | Where-Object Name -EQ "ContrailRootNetwork" | Should Not BeNullOrEmpty
         }
     }
 
@@ -98,6 +110,14 @@ Describe "Diagnostic check" {
         }
 
         It "can ping other Compute node from Dataplane interface" {
+            # Optional test
+        }
+
+        It "firewall is turned off" {
+            # Optional test
+        }
+
+        It "test signing is ON" {
             # Optional test
         }
     }
@@ -120,12 +140,25 @@ Describe "Diagnostic check" {
             Get-Service "Docker" | Select-Object -ExpandProperty "Status" | Should Be "Running"
         }
 
-        It "there are no orphaned Contrail networks" {
+        It "there are no Contrail networks in Docker with incorrect driver" {
             # After reboot, networks handled by 'Contrail' plugin will instead have 'transparent'
             # plugin assigned. Make sure there are no networks like this. 
             $Raw = docker network ls --filter 'driver=transparent'
             $Matches =  $Raw | Select-String "Contrail:.*"
+
             $Matches.Matches.Count | Should Be 0
+        }
+
+        It "there are no orphaned Contrail networks (present in HNS and absent in Docker)" {
+            $OwnedNetworks = docker network ls --quiet --filter 'driver=Contrail'
+            $ActualHNSNetworks = Get-ContainerNetwork | Where Name -Like "Contrail:*" `
+                | Select -ExpandProperty Name
+            foreach($HNSNet in $ActualHNSNetworks) {
+                # Substring(0, 12) because docker network IDs are shortened to 12 characters.
+                $AssociatedDockerNetID = ($HNSNet -split ":")[1].Substring(0, 12)
+
+                $OwnedNetworks -Contains $AssociatedDockerNetID | Should Be $true
+            }
         }
     }
 }
