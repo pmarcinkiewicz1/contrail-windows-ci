@@ -13,7 +13,7 @@ Param (
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\PesterLogger\RemoteLogCollector.ps1
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
-. $PSScriptRoot\..\..\Utils\CommonTestCode.ps1
+. $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteContainer.ps1
 . $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
 . $PSScriptRoot\..\..\Utils\Network\Connectivity.ps1
 . $PSScriptRoot\..\..\Utils\ComputeNode\Initialize.ps1
