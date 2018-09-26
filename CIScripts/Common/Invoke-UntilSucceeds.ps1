@@ -81,12 +81,13 @@ function Invoke-UntilSucceeds {
             if ($AssumeTrue -Or $ReturnVal) {
                 return $ReturnVal
             } else {
-                throw New-Object -TypeName CITimeoutException("${Name}: Did not evaluate to True." + 
+                throw New-Object -TypeName CITimeoutException("${Name}: Did not evaluate to True." +
                     "Last return value encountered was: $ReturnVal.")
             }
         } catch [HardError] {
             throw New-Object -TypeName CITimeoutException(
-                "${Name}: Stopped retrying because HardError was thrown"
+                "${Name}: Stopped retrying because HardError was thrown",
+                $_.Exception.InnerException
             )
         } catch {
             if ($LastCheck) {
