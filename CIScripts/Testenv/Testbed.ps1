@@ -16,13 +16,18 @@ function Get-TestbedCredential {
 }
 
 function New-RemoteSessions {
-    Param ([Parameter(Mandatory = $true)] [Hashtable[]] $VMs)
+    Param (
+        [Parameter(Mandatory = $true)] [Hashtable[]] $VMs,
+        $RetryCount = 10,
+        $Timeout = 300000
+    )
 
     $Sessions = [System.Collections.ArrayList] @()
     foreach ($VM in $VMs) {
         $Creds = Get-TestbedCredential -VM $VM
         $Sess = if ($VM['Address']) {
-            New-PSSession -ComputerName $VM.Address -Credential $Creds
+            $pso = New-PSSessionOption -MaxConnectionRetryCount $RetryCount -OperationTimeout $Timeout
+            New-PSSession -ComputerName $VM.Address -Credential $Creds -SessionOption $pso
         } elseif ($VM['VMName']) {
             New-PSSession -VMName $VM.VMName -Credential $Creds
         } else {
