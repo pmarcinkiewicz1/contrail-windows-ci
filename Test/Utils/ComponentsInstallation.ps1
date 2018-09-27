@@ -17,6 +17,13 @@ function Invoke-MsiExec {
 
         $Result = Start-Process msiexec.exe -ArgumentList @($Using:Action, $Using:Path, "/quiet") `
             -Wait -PassThru
+
+        # Do not fail while uninstaling MSIs that are not currently installed
+        $MsiErrorUnknownProduct = 1605
+        if ($Using:Uninstall -and ($Result.ExitCode -eq $MsiErrorUnknownProduct)) {
+            return
+        }
+
         if ($Result.ExitCode -ne 0) {
             $WhatWentWrong = if ($Using:Uninstall) {"Uninstallation"} else {"Installation"}
             throw "$WhatWentWrong of $Using:Path failed with $($Result.ExitCode)"
