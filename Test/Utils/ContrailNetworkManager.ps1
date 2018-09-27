@@ -61,12 +61,33 @@ class ContrailNetworkManager {
             $TenantName = $this.DefaultTenantName
         }
 
-        return Add-ContrailVirtualNetwork `
-            -ContrailUrl $this.ContrailUrl `
-            -AuthToken $this.AuthToken `
-            -TenantName $TenantName `
-            -NetworkName $Name `
-            -SubnetConfig $SubnetConfig
+        try {
+            return Add-ContrailVirtualNetwork `
+                -ContrailUrl $this.ContrailUrl `
+                -AuthToken $this.AuthToken `
+                -TenantName $TenantName `
+                -NetworkName $Name `
+                -SubnetConfig $SubnetConfig
+        } catch {
+            if ($_.Exception -notmatch "\(409\)") {
+                throw
+            }
+
+            $NetworkUuid = Get-ContrailVirtualNetworkUuidByName `
+                -ContrailUrl $this.ContrailUrl `
+                -AuthToken $this.AuthToken `
+                -TenantName $TenantName `
+                -NetworkName $Name
+
+            $this.RemoveNetwork($NetworkUuid)
+
+            return Add-ContrailVirtualNetwork `
+                -ContrailUrl $this.ContrailUrl `
+                -AuthToken $this.AuthToken `
+                -TenantName $TenantName `
+                -NetworkName $Name `
+                -SubnetConfig $SubnetConfig
+        }
     }
 
     RemoveNetwork([String] $Uuid) {

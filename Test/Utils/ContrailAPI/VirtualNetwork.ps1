@@ -1,6 +1,28 @@
 . $PSScriptRoot\..\DockerNetwork\DockerNetwork.ps1
 . $PSScriptRoot\Constants.ps1
 
+function Get-ContrailVirtualNetworkUuidByName {
+    Param ([Parameter(Mandatory = $true)] [string] $ContrailUrl,
+           [Parameter(Mandatory = $true)] [string] $AuthToken,
+           [Parameter(Mandatory = $true)] [string] $TenantName,
+           [Parameter(Mandatory = $true)] [string] $NetworkName)
+
+    $RequestUrl = $ContrailUrl + "/virtual-networks"
+    $Response = Invoke-RestMethod -Uri $RequestUrl -Headers @{"X-Auth-Token" = $AuthToken} -Method Get
+    $Networks = $Response.'virtual-networks'
+
+    foreach ($Network in $Networks) {
+        $FqName = $Network.fq_name
+        $AreFqNamesEqual = $null -eq $(Compare-Object $FqName @("default-domain", $TenantName, $NetworkName))
+
+        if ($AreFqNamesEqual) {
+            return $Network.uuid
+        }
+    }
+
+    return $null
+}
+
 function Add-ContrailVirtualNetwork {
     Param ([Parameter(Mandatory = $true)] [string] $ContrailUrl,
            [Parameter(Mandatory = $true)] [string] $AuthToken,
