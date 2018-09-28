@@ -10,14 +10,15 @@ Param (
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Installation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Configuration.ps1
+
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
 . $PSScriptRoot\..\..\PesterHelpers\PesterHelpers.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\PesterLogger\RemoteLogCollector.ps1
 
 Describe "vRouter Agent service" {
-    
     Context "disabling" {
         It "is disabled" -Pending {
             Get-AgentServiceStatus -Session $Session | Should Be "Stopped"
@@ -66,7 +67,6 @@ Describe "vRouter Agent service" {
             Enable-AgentService -Session $Session
         }
     }
-    
     Context "vRouter Forwarding Extension was disabled while Agent was running" {
         It "crashes" -Pending {
             Eventually {
@@ -85,10 +85,13 @@ Describe "vRouter Agent service" {
     }
 
     BeforeEach {
-        Initialize-DriverAndExtension -Session $Session `
-            -SystemConfig $SystemConfig `
+        New-CNMPluginConfigFile -Session $Session `
+            -AdapterName $SystemConfig.AdapterName `
             -OpenStackConfig $OpenStackConfig `
             -ControllerConfig $ControllerConfig
+
+        Initialize-DriverAndExtension -Session $Session `
+            -SystemConfig $SystemConfig
 
         New-AgentConfigFile -Session $Session `
             -ControllerConfig $ControllerConfig `

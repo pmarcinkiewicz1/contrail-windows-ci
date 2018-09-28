@@ -4,6 +4,7 @@
 . $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
+. $PSScriptRoot\Utils\ComputeNode\Configuration.ps1
 . $PSScriptRoot\Utils\DockerImageBuild.ps1
 . $PSScriptRoot\Utils\NetAdapterInfo\RemoteHost.ps1
 . $PSScriptRoot\PesterLogger\PesterLogger.ps1
@@ -108,31 +109,22 @@ function Test-IsVRouterExtensionEnabled {
 
 function Start-DockerDriver {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
-           [Parameter(Mandatory = $true)] [string] $AdapterName,
-           [Parameter(Mandatory = $true)] [OpenStackConfig] $OpenStackConfig,
-           [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig,
            [Parameter(Mandatory = $false)] [int] $WaitTime = 60)
-
     Write-Log "Starting Docker Driver"
 
     # We have to specify some file, because docker driver doesn't
     # currently support stderr-only logging.
     # TODO: Remove this when after "no log file" option is supported.
     $OldLogPath = "NUL"
-
     $LogDir = Get-ComputeLogsDir
+    $DefaultConfigFilePath = Get-DefaultCNMPluginsConfigPath
 
+    # TODO: delete the "config" argument
+    # when default path for the config file is supported.
     $Arguments = @(
-        "-controllerIP", $ControllerConfig.Address,
-        "-os_username", $OpenStackConfig.Username,
-        "-os_password", $OpenStackConfig.Password,
-        "-os_auth_url", $OpenStackConfig.AuthUrl(),
-        "-os_tenant_name", $OpenStackConfig.Project,
-        "-adapter", $AdapterName,
-        "-vswitchName", "Layered <adapter>",
         "-logPath", $OldLogPath,
         "-logLevel", "Debug",
-        "-authMethod", $ControllerConfig.AuthMethod
+        "-config", $DefaultConfigFilePath
     )
 
     Invoke-Command -Session $Session -ScriptBlock {
@@ -344,9 +336,7 @@ function Get-NodeManagementIP {
 function Initialize-DriverAndExtension {
     Param (
         [Parameter(Mandatory = $true)] [PSSessionT] $Session,
-        [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig,
-        [Parameter(Mandatory = $true)] [OpenStackConfig] $OpenStackConfig,
-        [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
+        [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig
     )
 
     Write-Log "Initializing Test Configuration"
@@ -357,9 +347,6 @@ function Initialize-DriverAndExtension {
 
         # DockerDriver automatically enables Extension
         Start-DockerDriver -Session $Session `
-            -AdapterName $SystemConfig.AdapterName `
-            -OpenStackConfig $OpenStackConfig `
-            -ControllerConfig $ControllerConfig `
             -WaitTime 0
 
         try {
@@ -408,60 +395,6 @@ function Clear-TestConfiguration {
     Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.AdapterName
 }
 
-function New-AgentConfigFile {
-    Param (
-        [Parameter(Mandatory = $true)] [PSSessionT] $Session,
-        [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig,
-        [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig
-    )
-
-    # Gather information about testbed's network adapters
-    $HNSTransparentAdapter = Get-RemoteNetAdapterInformation `
-            -Session $Session `
-            -AdapterName $SystemConfig.VHostName
-
-    $PhysicalAdapter = Get-RemoteNetAdapterInformation `
-            -Session $Session `
-            -AdapterName $SystemConfig.AdapterName
-
-    # Prepare parameters for script block
-    $ControllerIP = $ControllerConfig.Address
-    $VHostIfName = $HNSTransparentAdapter.ifName
-    $VHostIfIndex = $HNSTransparentAdapter.ifIndex
-    $PhysIfName = $PhysicalAdapter.ifName
-
-    $AgentConfigFilePath = $SystemConfig.AgentConfigFilePath
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        $ControllerIP = $Using:ControllerIP
-        $VHostIfName = $Using:VHostIfName
-        $VHostIfIndex = $Using:VHostIfIndex
-        $PhysIfName = $Using:PhysIfName
-
-        $VHostIP = (Get-NetIPAddress -ifIndex $VHostIfIndex -AddressFamily IPv4).IPAddress
-        $PrefixLength = (Get-NetIPAddress -ifIndex $VHostIfIndex -AddressFamily IPv4).PrefixLength
-        $VHostGateway = (Get-NetIPConfiguration -InterfaceIndex $VHostIfIndex).IPv4DefaultGateway
-        $VHostGatewayConfig = if ($VHostGateway) { "gateway=$( $VHostGateway.NextHop )" } else { "" }
-
-        $ConfigFileContent = @"
-[DEFAULT]
-platform=windows
-
-[CONTROL-NODE]
-servers=$ControllerIP
-
-[VIRTUAL-HOST-INTERFACE]
-name=$VHostIfName
-ip=$VHostIP/$PrefixLength
-$VHostGatewayConfig
-physical_interface=$PhysIfName
-"@
-
-        # Save file with prepared config
-        [System.IO.File]::WriteAllText($Using:AgentConfigFilePath, $ConfigFileContent)
-    }
-}
-
 function Initialize-ComputeServices {
         Param (
             [Parameter(Mandatory = $true)] [PSSessionT] $Session,
@@ -469,11 +402,13 @@ function Initialize-ComputeServices {
             [Parameter(Mandatory = $true)] [OpenStackConfig] $OpenStackConfig,
             [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
         )
-
-        Initialize-DriverAndExtension -Session $Session `
-            -SystemConfig $SystemConfig `
+        New-CNMPluginConfigFile -Session $Session `
+            -AdapterName $SystemConfig.AdapterName `
             -OpenStackConfig $OpenStackConfig `
             -ControllerConfig $ControllerConfig
+
+        Initialize-DriverAndExtension -Session $Session `
+            -SystemConfig $SystemConfig
 
         New-AgentConfigFile -Session $Session `
             -ControllerConfig $ControllerConfig `

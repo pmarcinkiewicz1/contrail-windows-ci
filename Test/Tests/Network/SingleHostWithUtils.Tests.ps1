@@ -10,11 +10,11 @@ Param (
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Installation.ps1
 . $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
 . $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteContainer.ps1
 . $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteHost.ps1
-. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1 
+. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
 . $PSScriptRoot\..\..\PesterHelpers\PesterHelpers.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
@@ -97,8 +97,6 @@ Describe "Single compute node protocol tests with utils" {
 
         Initialize-DriverAndExtension -Session $Session `
             -SystemConfig $SystemConfig `
-            -OpenStackConfig $OpenStackConfig `
-            -ControllerConfig $ControllerConfig
 
         New-DockerNetwork -Session $Session `
             -TenantName $ControllerConfig.DefaultProject `
