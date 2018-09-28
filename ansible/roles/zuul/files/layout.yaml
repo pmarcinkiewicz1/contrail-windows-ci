@@ -55,6 +55,9 @@ pipelines:
             - ^stable/newton$
             - ^stable/ocata$
           comment: (?i)recheck(( (?:bug|lp)[\s#:]*(\d+))|( no bug))?(\s+clean)?\s*$
+          reject-approval:
+            - username: codilime-ci
+              verified: 1
         - event: comment-added
           comment: (?i)recheck windows$
     start:
