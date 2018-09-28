@@ -17,7 +17,23 @@ function Test-Ping {
     }
     $Output = $Res[0..($Res.length - 2)]
     Write-Log "Ping output: $Output"
-    return $Res[-1]
+
+    if ($Res[-1] -eq "0") {
+        # Ping's exit code suggests everything worked, but
+        # "Destination host unreachable" also returns exit code 0,
+        # therefore we parse output to make sure it actually passed.
+        # We check if the last ping (out of 4) returned the time
+        # it took, because "host unreachable" doesn't return the time.
+        if ($Output[5] | Select-String "[0-9] *ms") {
+            return 0
+        }
+        else {
+            return 2
+        }
+    }
+    else {
+        return 1
+    }
 }
 
 function Test-TCP {
