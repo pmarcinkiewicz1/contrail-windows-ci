@@ -95,6 +95,11 @@ Describe "Single compute node protocol tests with utils" {
         )]
         $ContrailNetwork = $ContrailNM.AddNetwork($null, $NetworkName, $Subnet)
 
+        New-CNMPluginConfigFile -Session $Session `
+            -AdapterName $SystemConfig.AdapterName `
+            -OpenStackConfig $OpenStackConfig `
+            -ControllerConfig $ControllerConfig
+
         Initialize-DriverAndExtension -Session $Session `
             -SystemConfig $SystemConfig `
 

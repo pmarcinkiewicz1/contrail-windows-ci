@@ -333,6 +333,8 @@ function Get-NodeManagementIP {
     }
 }
 
+# Before running this function make sure CNM-Plugin config file is created.
+# It can be done by function New-CNMPluginConfigFile.
 function Initialize-DriverAndExtension {
     Param (
         [Parameter(Mandatory = $true)] [PSSessionT] $Session,
