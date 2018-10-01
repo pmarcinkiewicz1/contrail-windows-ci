@@ -35,7 +35,7 @@ function Initialize-DockerImage  {
     # https://github.com/moby/moby/issues/27588
     {
         $Command = Invoke-NativeCommand -Session $Session -CaptureOutput -AllowNonZero -ScriptBlock {
-            docker build -t $Using:DockerImageName $Using:TestbedDockerfilePath
+            docker build --network none --tag $Using:DockerImageName $Using:TestbedDockerfilePath
         }
 
         if ($Command.ExitCode -eq 0) {
