@@ -4,7 +4,9 @@ pipelines:
     failure-message: Build failed (check pipeline).
     success-message: Build succeeeded (check pipeline).
     footer-message: > 
-                      This is a pipeline from Windows CI. For more information, see:
+                      This is a pipeline from Windows CI.
+                      Latest build stats: http://148.251.5.92/d/w9YdWjqzk/build-statistics.
+                      For troubleshooting and FAQ, see:
                       https://github.com/Juniper/contrail-windows-ci/wiki/OpenContrail-Windows-CI-FAQ
     manager: IndependentPipelineManager
     trigger:
