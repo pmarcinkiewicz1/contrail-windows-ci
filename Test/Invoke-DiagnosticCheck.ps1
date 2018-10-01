@@ -1,12 +1,9 @@
-# Runs diagnostic check against remote Windows hosts (if TestenvConfFile is defined) or against
-# localhost (if TestenvConfFile is not defined).
-# Verifies Windows Contrail services and other assumptions about the configuration.
-
-Param(
-    [Parameter(Mandatory = $false)] [string] $TestenvConfFile
+Param (
+    [Parameter(Mandatory = $false)] [String] $AdapterName = "Ethernet1",
+    [Parameter(Mandatory = $false)] [String] $VHostName = "vEthernet (HNSTransparent)",
+    [Parameter(Mandatory = $false)] [String] $ForwardingExtensionName = "vRouter forwarding extension",
+    [Parameter(Mandatory = $false)] [String] $VMSwitchName = "Layered Ethernet1"
 )
-
-. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 
 function Assert-RunningAsAdmin {
     $Principal = New-Object Security.Principal.WindowsPrincipal(
@@ -18,30 +15,19 @@ function Assert-RunningAsAdmin {
     }
 }
 
-$SystemConfig = $null
-
 Describe "Diagnostic check" {
-    BeforeAll {
-        # $TestbedConfigs = Read-TestbedsConfig -Path $TestenvConfFile
-        # $OpenStackConfig = Read-OpenStackConfig -Path $TestenvConfFile
-        # $ControllerConfig = Read-ControllerConfig -Path $TestenvConfFile
-        $SystemConfig = Read-SystemConfig -Path $TestenvConfFile
-    }
-
     Context "vRouter forwarding extension" {
         It "is running" {
             Assert-RunningAsAdmin
-            $SwitchName = "Layered?$($SystemConfig.AdapterName)"
-            Get-VMSwitchExtension -Name "vRouter*" -VMSwitchName $SwitchName `
-                | Select -ExpandProperty "Running" `
+            Get-VMSwitchExtension -Name $ForwardingExtensionName -VMSwitchName $VMSwitchName `
+                | Select-Object -ExpandProperty "Running" `
                 | Should Be $true
         }
 
         It "is enabled" {
             Assert-RunningAsAdmin
-            $SwitchName = "Layered?$($SystemConfig.AdapterName)"
-            Get-VMSwitchExtension -Name "vRouter*" -VMSwitchName $SwitchName `
-                | Select -ExpandProperty "Enabled" `
+            Get-VMSwitchExtension -Name $ForwardingExtensionName -VMSwitchName $VMSwitchName `
+                | Select-Object -ExpandProperty "Enabled" `
                 | Should Be $true
         }
 
@@ -50,14 +36,14 @@ Describe "Diagnostic check" {
         }
 
         It "vhost vif is present" {
-            $VHostIfAlias = Get-NetAdapter -InterfaceAlias $SystemConfig.VHostName `
-                | Select -ExpandProperty ifName
+            $VHostIfAlias = Get-NetAdapter -InterfaceAlias $VHostName `
+                | Select-Object -ExpandProperty ifName
             vif.exe --list | Select-String $VHostIfAlias | Should Not BeNullOrEmpty
         }
 
         It "physical vif is present" {
-            $PhysIfAlias = Get-NetAdapter -InterfaceAlias $SystemConfig.AdapterName `
-                | Select -ExpandProperty ifName
+            $PhysIfAlias = Get-NetAdapter -InterfaceAlias $AdapterName `
+                | Select-Object -ExpandProperty ifName
             vif.exe --list | Select-String $PhysIfAlias | Should Not BeNullOrEmpty
         }
 
@@ -115,13 +101,20 @@ Describe "Diagnostic check" {
                 | Should Be "Running"
         }
 
-        It "serves a named pipe API server" {
+        It "creates a named pipe API server" {
             Get-ChildItem "//./pipe/" | Where-Object Name -EQ "Contrail" `
                 | Should Not BeNullOrEmpty
         }
 
-        It "responds to GetCapabilities CNM request" {
-
+        It "serves on named pipe API server" {
+            $Stream = $null
+            try {
+                $Stream = New-Object System.IO.Pipes.NamedPipeClientStream(".", "Contrail")
+                $TimeoutMilisecs = 1000
+                { $Stream.Connect($TimeoutMilisecs) } | Should Not Throw
+            } finally {
+                $Stream.Dispose()
+            }
         }
 
         It "has created a root Contrail HNS network in Docker" {
@@ -133,7 +126,7 @@ Describe "Diagnostic check" {
     Context "Compute node" {
         It "VMSwitch exists" {
             Assert-RunningAsAdmin
-            Get-VMSwitch "Layered?$($SystemConfig.AdapterName)" | Should Not BeNullOrEmpty
+            Get-VMSwitch "Layered?$AdapterName" | Should Not BeNullOrEmpty
         }
 
         It "can ping Control node from Control interface" {
@@ -147,7 +140,8 @@ Describe "Diagnostic check" {
         It "firewall is turned off" {
             # Optional test
             foreach ($Prof in @("Domain", "Public", "Private")) {
-                $State = Get-NetFirewallProfile -Profile $Prof | Select -ExpandProperty Enabled
+                $State = Get-NetFirewallProfile -Profile $Prof `
+                    | Select-Object -ExpandProperty Enabled
                 if ($State) {
                     $Msg = "Firewall is enabled for profile $Prof - it may break IP fragmentation."
                     Set-TestInconclusive $Msg
@@ -206,8 +200,9 @@ Describe "Diagnostic check" {
         It "there are no orphaned Contrail networks (present in HNS and absent in Docker)" {
             Assert-RunningAsAdmin
             $OwnedNetworks = docker network ls --quiet --filter 'driver=Contrail'
-            $ActualHNSNetworks = Get-ContainerNetwork | Where Name -Like "Contrail:*" `
-                | Select -ExpandProperty Name
+            $ActualHNSNetworks = Get-ContainerNetwork `
+                | Where-Object Name -Like "Contrail:*" `
+                | Select-Object -ExpandProperty Name
             foreach($HNSNet in $ActualHNSNetworks) {
                 # Substring(0, 12) because docker network IDs are shortened to 12 characters.
                 $AssociatedDockerNetID = ($HNSNet -split ":")[1].Substring(0, 12)
