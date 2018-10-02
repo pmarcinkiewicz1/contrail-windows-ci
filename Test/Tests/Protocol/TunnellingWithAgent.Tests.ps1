@@ -308,7 +308,7 @@ Describe "Tunneling with Agent tests" {
                 $Sessions = $MultiNode.Sessions
             }
 
-            It "Uses specified tunneling method" -Pending {
+            It "Uses specified tunneling method" {
                 if ($TunnelingMethod -eq "VXLAN") {
                     # Probably a bug here: https://github.com/Juniper/contrail-vrouter/blob/master/dp-core/vr_nexthop.c#L1983
                     Set-TestInconclusive "Test not performed, because VXLAN doesn't report correctly in vrfstats"
@@ -326,7 +326,7 @@ Describe "Tunneling with Agent tests" {
                 $StatsAfter[$TunnelingMethod] | Should BeGreaterThan $StatsBefore[$TunnelingMethod]
             }
 
-            It "ICMP - Ping between containers on separate compute nodes succeeds" -Pending {
+            It "ICMP - Ping between containers on separate compute nodes succeeds" {
                 Test-Ping `
                     -Session $Sessions[0] `
                     -SrcContainerName $Container1ID `
@@ -340,7 +340,7 @@ Describe "Tunneling with Agent tests" {
                     -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
             }
 
-            It "TCP - HTTP connection between containers on separate compute nodes succeeds" -Pending {
+            It "TCP - HTTP connection between containers on separate compute nodes succeeds" {
                 Test-TCP `
                     -Session $Sessions[1] `
                     -SrcContainerName $Container2ID `
@@ -348,7 +348,7 @@ Describe "Tunneling with Agent tests" {
                     -DstContainerIP $Container1NetInfo.IPAddress | Should Be 0
             }
 
-            It "UDP - sending message between containers on separate compute nodes succeeds" -Pending {
+            It "UDP - sending message between containers on separate compute nodes succeeds" {
                 $MyMessage = "We are Tungsten Fabric. We come in peace."
 
                 Test-UDP `
@@ -361,7 +361,7 @@ Describe "Tunneling with Agent tests" {
                     -Message $MyMessage | Should Be $true
             }
 
-            It "IP fragmentation - ICMP - Ping with big buffer succeeds" -Pending {
+            It "IP fragmentation - ICMP - Ping with big buffer succeeds" {
                 $Container1MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
                 $Container2MsgFragmentationThreshold = Get-MaxICMPDataSizeForMTU -MTU $Container2NetInfo.MtuSize
 
@@ -384,7 +384,7 @@ Describe "Tunneling with Agent tests" {
                 }
             }
 
-            It "IP fragmentation - UDP - sending big buffer succeeds" -Pending {
+            It "IP fragmentation - UDP - sending big buffer succeeds" {
                 $MsgFragmentationThreshold = Get-MaxUDPDataSizeForMTU -MTU $Container1NetInfo.MtuSize
 
                 $MessageLargerBeforeTunneling = "a" * $($MsgFragmentationThreshold + 1)
