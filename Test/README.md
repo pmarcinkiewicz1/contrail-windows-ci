@@ -1,0 +1,189 @@
+# Running tests
+
+This document describes how to set up everything needed for running Windows sanity tests:
+* 3-node test lab (2 Windows compute nodes, 1 Linux controller),
+* Windows artifacts deployed on Testbeds,
+* tools to run the test suite,
+* test runner scripts.
+
+## Test lab preparation
+
+### CodiLime lab
+
+To deploy in local CodiLime VMWare lab, follow [this](https://juniper.github.io/contrail-windows-docs/contrail_deployment/Devenv_in_local_env/) document.
+
+### Juniper lab
+
+Test lab can be provisioned easily in Juniper infra using Deploy-Dev-Env job in Windows CI Jenkins.
+
+### Other
+
+There are different ways to deploy. Refer to [this](https://juniper.github.io/contrail-windows-docs/contrail_deployment/contrail_deployment_manual/) document for more information.
+
+## Deploying artifacts
+
+### Nightly
+
+Artifacts can be deployed from nightly build. The easiest way is to use ansible ad-hoc commands:
+
+```
+# Helper alias to run PowerShell on all testbeds
+alias run_tb='ansible -i inventory --vault-password-file ~/ansible-vault-key testbed -m win_shell -a'
+
+run_tb "mkdir C:/Artifacts"
+run_tb "docker run -v C:\Artifacts:C:\Artifacts mclapinski/contrail-windows-docker-driver"
+run_tb "docker run -v C:\Artifacts:C:\Artifacts mclapinski/contrail-windows-vrouter"
+run_tb "Import-Certificate -CertStoreLocation Cert:\LocalMachine\Root\ C:\Artifacts\vrouter\vRouter.cer"
+run_tb "Import-Certificate -CertStoreLocation Cert:\LocalMachine\TrustedPublisher\ C:\Artifacts\vrouter\vRouter.cer"
+```
+
+#### Current workarounds
+
+*WORKAROUND*: vcpython27 is missing on testbeds:
+```
+run_tb "choco install vcpython27 -y"
+```
+
+*WORKAROUND*: layout of artifacts expected by test suite is slightly different than the one
+created by nightly containers. We must move
+```
+run_tb "Copy-Item -Recurse -Filter *msi 'C:/Artifacts/*/*' 'C:/Artifacts'"
+run_tb "Copy-Item -Recurse -Filter *cer 'C:/Artifacts/*/*' 'C:/Artifacts'"
+
+# Verify that there are four MSIs (for Agent, vRouter, utils and CNM plugin) with:
+run_tb "ls 'C:/Artifacts'"
+```
+
+*WORKAROUND*: when working with Debug version of vRouter Forwarding Extension, special debug DLLs
+must be present on testbeds. These DLLs are:
+* msvcp140d.dll
+* ucrtbased.dll
+* vcruntime140d.dll
+
+They are distributed along with Visual Studio and MSBuild.
+
+To copy them to remote Windows testbeds, use:
+```
+ansible -i inventory --vault-password-file ~/ansible-vault-key testbed -m win_copy -a "dest=C:/Windows/system32/ src=/path/to/msvcp140d.dll"
+ansible -i inventory --vault-password-file ~/ansible-vault-key testbed -m win_copy -a "dest=C:/Windows/system32/ src=/path/to/ucrtbased.dll"
+ansible -i inventory --vault-password-file ~/ansible-vault-key testbed -m win_copy -a "dest=C:/Windows/system32/ src=/path/to/vcruntime140d.dll"
+```
+
+
+
+## Test suite prerequisites
+
+1. Install Pester:
+
+    ```Install-Module -Name Pester -Force -SkipPublisherCheck -RequiredVersion 4.2.0```
+
+1. Install `powershell-yaml`:
+
+    ```Install-Module powershell-yaml```
+
+
+## Test configuration
+
+Copy `testenv-conf.yaml.sample` to `testenv-conf.yaml` file and replace all occurences of:
+* `<CONTROLLER_IP>` - Controller IP address, accessible from local machine (network 10.84.12.0/24 in current setup)
+* `<TESTBED1_NAME>`, `<TESTBED2_NAME>` - Testbeds hostnames
+* `<TESTBED1_IP>`, `<TESTBED2_IP>` - Testbeds IP addresses, accessible from local machine (the same network as for Controller)
+
+
+## Running the tests
+
+Run the whole Windows sanity suite:
+```
+.\Invoke-ProductTests.ps1 -TestRootDir . -TestenvConfFile ..\testenv-conf.yaml -TestReportDir ../reports
+```
+
+Run selected test:
+
+```
+Invoke-Pester -Script @{ Path = ".\TunnellingWithAgent.Tests.ps1"; Parameters = @{ TestenvConfFile = "testenv-conf.yaml"}; } -TestName 'Tunnelling with Agent tests'
+```
+
+## Debugging the tests
+
+### Visual Studio Code 
+
+1. Install ms-vscode.powershell plugin
+1. Open test file you want to debug.
+1. At the top of the file, specify path to `TestenvConfFile`, like so:
+
+```
+Param (
+    [Parameter(Mandatory=$false)] [string] $TestenvConfFile = "C:\Users\mk\Juniper\tmp\contrail-windows-ci\testenv-conf.yaml",
+    ...
+```
+1. Setup any breakpoints.
+1. Find the start of test suite `Describe` block.
+1. Click `Debug tests` which appears just above the `Describe` block.
+
+Note: if PowerShell session crashes, try `Ctrl`+`Shift`+`P` -> `Powershell: Restart current session`.
+
+## Manual cleanup of resource in Controller
+
+When developing tests, some stray resources may appear in Contrail Controller and cause subsequent
+test executions to fail (for exampe due to 409 Conflict errors).
+
+The easiest way to clean them up is to use [contrail-api-cli](https://github.com/eonpatapon/contrail-api-cli).
+It works on Windows and Linux.
+
+Inspect the stack trace to find what resources need to be removed. For example:
+```
+WebException: The remote server returned an error: (409) Conflict.
+at Add-ContrailPassAllPolicy, C:\Users\mk\Juniper\tmp\contrail-windows-ci\Test\Utils\ContrailAPI\NetworkPolicy.ps1: line 72
+at AddPassAllPolicyOnDefaultTenant, C:\Users\mk\Juniper\tmp\contrail-windows-ci\Test\Utils\ContrailNetworkManager.ps1: line 158
+at <ScriptBlock>, C:\Users\mk\Juniper\tmp\contrail-windows-ci\Test\Tests\Network\FloatingIP.Tests.ps1: line 76
+at Invoke-Blocks, C:\Users\mk\Documents\WindowsPowerShell\Modules\Pester\Functions\SetupTeardown.ps1: line 140
+at Invoke-TestGroupSetupBlocks, C:\Users\mk\Documents\WindowsPowerShell\Modules\Pester\Functions\SetupTeardown.ps1: line 125
+at DescribeImpl, C:\Users\mk\Documents\WindowsPowerShell\Modules\Pester\Functions\Describe.ps1: line 157
+```
+we can see that error was thrown in NetworkPolicy.ps1, on line 72.
+
+Here's an example of how one would remove this network-policy resource using contrail-api-cli.
+
+```bash
+# Useful alias for deployment with Keystone
+alias capi='contrail-api-cli --os-username {controller:login} --os-auth-plugin v2password --os-password {controller:password} --os-auth-url http://{controller:IP}:5000/v2.0/ --os-tenant-name admin --host {controller:IP}'
+
+# Useful alias for deployment without Keystone (noauth mode)
+alias capi='contrail-api-cli --os-username {controller:login} --os-auth-plugin v2password --os-password {controller:password} --os-auth-url http://{controller:IP}:5000/v2.0/ --os-tenant-name {controller:login} --host {controller:IP}
+'
+
+capi shell # Enter interactive mode of contrail-ap-cli
+```
+
+```bash
+# Example of cleanup using interactive mode
+admin@10.7.0.60:/> cd network-policy
+admin@10.7.0.60:/network-policy> ls
+f881b652-8c1c-4009-befe-8b6e7f027865
+admin@10.7.0.60:/network-policy> rm -r f881b652-8c1c-4009-befe-8b6e7f027865
+This command is experimental. Use at your own risk.
+About to delete:
+ - f881b652-8c1c-4009-befe-8b6e7f027865
+ - /virtual-network/8b0f01bf-bf71-4a79-bd9f-b6b8bf4e9c8f
+'Yes' or 'No' to continue: Yes
+Deleting /virtual-network/8b0f01bf-bf71-4a79-bd9f-b6b8bf4e9c8f
+Delete when children still present: ['http://10.7.0.60:8082/floating-ip-pool/8ca91125-fbc8-4eb7-87fb-440513ecc048'] (HTTP 409)
+admin@10.7.0.60:/network-policy> rm -r /floating-ip-pool/8ca91125-fbc8-4eb7-87fb-440513ecc048
+This command is experimental. Use at your own risk.
+About to delete:
+ - /floating-ip-pool/8ca91125-fbc8-4eb7-87fb-440513ecc048
+'Yes' or 'No' to continue: Yes
+Deleting /floating-ip-pool/8ca91125-fbc8-4eb7-87fb-440513ecc048
+admin@10.7.0.60:/network-policy> rm -r f881b652-8c1c-4009-befe-8b6e7f027865
+This command is experimental. Use at your own risk.
+About to delete:
+ - f881b652-8c1c-4009-befe-8b6e7f027865
+ - /virtual-network/8b0f01bf-bf71-4a79-bd9f-b6b8bf4e9c8f
+'Yes' or 'No' to continue: Yes
+Deleting /virtual-network/8b0f01bf-bf71-4a79-bd9f-b6b8bf4e9c8f
+Deleting f881b652-8c1c-4009-befe-8b6e7f027865
+admin@10.7.0.60:/network-policy> exit
+```
+## CI Selfcheck
+
+To run CI Selfcheck please see [this document](../../SELFCHECK.md).

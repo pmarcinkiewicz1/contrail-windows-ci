@@ -62,8 +62,10 @@ function Install-Artifacts {
         Copy-Item -ToSession $Session -Path "nodemgr" -Destination C:\Artifacts\ -Recurse
     }
 
-    Write-Host "Copying dlls"
-    Copy-Item -ToSession $Session -Path "dlls\*" -Destination "C:\Windows\System32\"
+    if (Test-NonemptyDir "dlls") {
+        Write-Host "Copying dlls"
+        Copy-Item -ToSession $Session -Path "dlls\*" -Destination "C:\Windows\System32\"
+    }
 
     Invoke-Command -Session $Session -ScriptBlock {
         # Refresh Path

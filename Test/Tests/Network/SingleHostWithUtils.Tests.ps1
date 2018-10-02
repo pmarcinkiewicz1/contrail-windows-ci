@@ -10,10 +10,12 @@ Param (
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Installation.ps1
 . $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
-. $PSScriptRoot\..\..\Utils\CommonTestCode.ps1 # Get-RemoteNetAdapterInformation
-. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1 
+. $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteContainer.ps1
+. $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteHost.ps1
+. $PSScriptRoot\..\..\Utils\Network\Connectivity.ps1
+. $PSScriptRoot\..\..\Utils\DockerImageBuild.ps1
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
 . $PSScriptRoot\..\..\PesterHelpers\PesterHelpers.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
@@ -54,16 +56,34 @@ Describe "Single compute node protocol tests with utils" {
         }
     }
 
-    It "Ping between containers succeeds" {
-        Invoke-Command -Session $Session -ScriptBlock {
-            $Container2IP = $Using:Container2NetInfo.IPAddress
-            docker exec $Using:Container1ID powershell "ping $Container2IP > null 2>&1; `$LASTEXITCODE;"
-        } | Should Be 0 # Small packet
+    It "Ping succeeds" {
+        Test-Ping `
+            -Session $Session `
+            -SrcContainerName $Container1ID `
+            -DstContainerName $Container2ID `
+            -DstIP $Container2NetInfo.IPAddress | Should Be 0
 
-        Invoke-Command -Session $Session -ScriptBlock {
-            $Container1IP = $Using:Container1NetInfo.IPAddress
-            docker exec $Using:Container2ID powershell "ping $Container1IP -l 3500 > null 2>&1; `$LASTEXITCODE;"
-        } | Should Be 0 # Big packet (fragmentation)
+        Test-Ping `
+            -Session $Session `
+            -SrcContainerName $Container2ID `
+            -DstContainerName $Container1ID `
+            -DstIP $Container1NetInfo.IPAddress | Should Be 0
+    }
+
+    It "Ping with big buffer succeeds" {
+        Test-Ping `
+            -Session $Session `
+            -SrcContainerName $Container1ID `
+            -DstContainerName $Container2ID `
+            -DstIP $Container2NetInfo.IPAddress `
+            -BufferSize 3500 | Should Be 0
+
+        Test-Ping `
+            -Session $Session `
+            -SrcContainerName $Container2ID `
+            -DstContainerName $Container1ID `
+            -DstIP $Container1NetInfo.IPAddress `
+            -BufferSize 3500 | Should Be 0
     }
 
     It "TCP connection works" {
@@ -94,10 +114,13 @@ Describe "Single compute node protocol tests with utils" {
         )]
         $ContrailNetwork = $ContrailNM.AddNetwork($null, $NetworkName, $Subnet)
 
-        Initialize-DriverAndExtension -Session $Session `
-            -SystemConfig $SystemConfig `
+        New-CNMPluginConfigFile -Session $Session `
+            -AdapterName $SystemConfig.AdapterName `
             -OpenStackConfig $OpenStackConfig `
             -ControllerConfig $ControllerConfig
+
+        Initialize-DriverAndExtension -Session $Session `
+            -SystemConfig $SystemConfig `
 
         New-DockerNetwork -Session $Session `
             -TenantName $ControllerConfig.DefaultProject `

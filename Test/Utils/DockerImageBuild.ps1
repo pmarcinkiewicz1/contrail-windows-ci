@@ -35,7 +35,7 @@ function Initialize-DockerImage  {
     # https://github.com/moby/moby/issues/27588
     {
         $Command = Invoke-NativeCommand -Session $Session -CaptureOutput -AllowNonZero -ScriptBlock {
-            docker build -t $Using:DockerImageName $Using:TestbedDockerfilePath
+            docker build --network none --tag $Using:DockerImageName $Using:TestbedDockerfilePath
         }
 
         if ($Command.ExitCode -eq 0) {
@@ -47,7 +47,7 @@ function Initialize-DockerImage  {
         if ($Command.Output -Match ".*container.*encountered an error during Start.*0x5b4.*") {
             throw $Command.Output
         } else {
-            throw [HardError]::new("hard error", $Command.Output)
+            throw [HardError]::new("hard error", [InvalidOperationException]::new($Command.Output))
         }
     } | Invoke-UntilSucceeds -Name "docker build" -NumRetries 5
 }

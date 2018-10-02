@@ -9,29 +9,12 @@ Param (
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\PesterLogger\RemoteLogCollector.ps1
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
-. $PSScriptRoot\..\..\Utils\ComponentsInstallation.ps1
+. $PSScriptRoot\..\..\Utils\ComputeNode\Installation.ps1
+. $PSScriptRoot\..\..\Utils\Network\Connectivity.ps1
 . $PSScriptRoot\..\..\Utils\ComputeNode\Initialize.ps1
 . $PSScriptRoot\..\..\Utils\ContrailNetworkManager.ps1
 . $PSScriptRoot\..\..\Utils\DockerNetwork\DockerNetwork.ps1
 . $PSScriptRoot\..\..\Utils\MultiNode\ContrailMultiNodeProvisioning.ps1
-
-function Test-Ping {
-    Param (
-        [Parameter(Mandatory=$true)] [PSSessionT] $Session,
-        [Parameter(Mandatory=$true)] [String] $SrcContainerName,
-        [Parameter(Mandatory=$true)] [String] $DstIP,
-        [Parameter(Mandatory=$false)] [Int] $BufferSize = 32
-    )
-
-    Write-Log "Container $SrcContainerName is pinging $DstIP..."
-    $Res = Invoke-Command -Session $Session -ScriptBlock {
-        docker exec $Using:SrcContainerName powershell `
-            "ping -l $Using:BufferSize $Using:DstIP; `$LASTEXITCODE;"
-    }
-    $Output = $Res[0..($Res.length - 2)]
-    Write-Log "Ping output: $Output"
-    return $Res[-1]
-}
 
 $PolicyName = "passallpolicy"
 

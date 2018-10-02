@@ -4,8 +4,9 @@
 . $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
-. $PSScriptRoot\Utils\CommonTestCode.ps1
+. $PSScriptRoot\Utils\ComputeNode\Configuration.ps1
 . $PSScriptRoot\Utils\DockerImageBuild.ps1
+. $PSScriptRoot\Utils\NetAdapterInfo\RemoteHost.ps1
 . $PSScriptRoot\PesterLogger\PesterLogger.ps1
 
 $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS = 60
@@ -108,31 +109,22 @@ function Test-IsVRouterExtensionEnabled {
 
 function Start-DockerDriver {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
-           [Parameter(Mandatory = $true)] [string] $AdapterName,
-           [Parameter(Mandatory = $true)] [OpenStackConfig] $OpenStackConfig,
-           [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig,
            [Parameter(Mandatory = $false)] [int] $WaitTime = 60)
-
     Write-Log "Starting Docker Driver"
 
     # We have to specify some file, because docker driver doesn't
     # currently support stderr-only logging.
     # TODO: Remove this when after "no log file" option is supported.
     $OldLogPath = "NUL"
-
     $LogDir = Get-ComputeLogsDir
+    $DefaultConfigFilePath = Get-DefaultCNMPluginsConfigPath
 
+    # TODO: delete the "config" argument
+    # when default path for the config file is supported.
     $Arguments = @(
-        "-controllerIP", $ControllerConfig.Address,
-        "-os_username", $OpenStackConfig.Username,
-        "-os_password", $OpenStackConfig.Password,
-        "-os_auth_url", $OpenStackConfig.AuthUrl(),
-        "-os_tenant_name", $OpenStackConfig.Project,
-        "-adapter", $AdapterName,
-        "-vswitchName", "Layered <adapter>",
         "-logPath", $OldLogPath,
         "-logLevel", "Debug",
-        "-authMethod", $ControllerConfig.AuthMethod
+        "-config", $DefaultConfigFilePath
     )
 
     Invoke-Command -Session $Session -ScriptBlock {
@@ -148,8 +140,10 @@ function Start-DockerDriver {
             $LogPath = Join-Path $LogDir "contrail-windows-docker-driver.log"
             $ErrorActionPreference = "Continue"
 
+            # "Out-File -Append" in contrary to "Add-Content" doesn't require a read lock, so logs can
+            # be read while the process is running
             & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" $Arguments 2>&1 |
-                Add-Content -NoNewline $LogPath
+                Out-File -Append -FilePath $LogPath
         } -ArgumentList $Arguments, $LogDir
     }
 
@@ -165,9 +159,18 @@ function Stop-DockerDriver {
 
     Invoke-Command -Session $Session -ScriptBlock {
         Stop-Service docker | Out-Null
-        Get-NetNat | Remove-NetNat -Confirm:$false
-        Get-ContainerNetwork | Remove-ContainerNetwork -ErrorAction SilentlyContinue -Force
-        Get-ContainerNetwork | Remove-ContainerNetwork -Force
+
+        # Removing NAT objects when 'winnat' service is stopped may fail.
+        # In this case, we have to try removing all objects but ignore failures for some of them.
+        Get-NetNat | ForEach-Object {
+            Remove-NetNat $_.Name -Confirm:$false -ErrorAction SilentlyContinue
+        }
+
+        # Removing ContainerNetworks may fail for NAT network when 'winnat'
+        # service is disabled, so we have to filter out all NAT networks.
+        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -ErrorAction SilentlyContinue -Force
+        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -Force
+
         Start-Service docker | Out-Null
     }
 }
@@ -330,12 +333,12 @@ function Get-NodeManagementIP {
     }
 }
 
+# Before running this function make sure CNM-Plugin config file is created.
+# It can be done by function New-CNMPluginConfigFile.
 function Initialize-DriverAndExtension {
     Param (
         [Parameter(Mandatory = $true)] [PSSessionT] $Session,
-        [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig,
-        [Parameter(Mandatory = $true)] [OpenStackConfig] $OpenStackConfig,
-        [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
+        [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig
     )
 
     Write-Log "Initializing Test Configuration"
@@ -346,9 +349,6 @@ function Initialize-DriverAndExtension {
 
         # DockerDriver automatically enables Extension
         Start-DockerDriver -Session $Session `
-            -AdapterName $SystemConfig.AdapterName `
-            -OpenStackConfig $OpenStackConfig `
-            -ControllerConfig $ControllerConfig `
             -WaitTime 0
 
         try {
@@ -397,60 +397,6 @@ function Clear-TestConfiguration {
     Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.AdapterName
 }
 
-function New-AgentConfigFile {
-    Param (
-        [Parameter(Mandatory = $true)] [PSSessionT] $Session,
-        [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig,
-        [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig
-    )
-
-    # Gather information about testbed's network adapters
-    $HNSTransparentAdapter = Get-RemoteNetAdapterInformation `
-            -Session $Session `
-            -AdapterName $SystemConfig.VHostName
-
-    $PhysicalAdapter = Get-RemoteNetAdapterInformation `
-            -Session $Session `
-            -AdapterName $SystemConfig.AdapterName
-
-    # Prepare parameters for script block
-    $ControllerIP = $ControllerConfig.Address
-    $VHostIfName = $HNSTransparentAdapter.ifName
-    $VHostIfIndex = $HNSTransparentAdapter.ifIndex
-    $PhysIfName = $PhysicalAdapter.ifName
-
-    $AgentConfigFilePath = $SystemConfig.AgentConfigFilePath
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        $ControllerIP = $Using:ControllerIP
-        $VHostIfName = $Using:VHostIfName
-        $VHostIfIndex = $Using:VHostIfIndex
-        $PhysIfName = $Using:PhysIfName
-
-        $VHostIP = (Get-NetIPAddress -ifIndex $VHostIfIndex -AddressFamily IPv4).IPAddress
-        $PrefixLength = (Get-NetIPAddress -ifIndex $VHostIfIndex -AddressFamily IPv4).PrefixLength
-        $VHostGateway = (Get-NetIPConfiguration -InterfaceIndex $VHostIfIndex).IPv4DefaultGateway
-        $VHostGatewayConfig = if ($VHostGateway) { "gateway=$( $VHostGateway.NextHop )" } else { "" }
-
-        $ConfigFileContent = @"
-[DEFAULT]
-platform=windows
-
-[CONTROL-NODE]
-servers=$ControllerIP
-
-[VIRTUAL-HOST-INTERFACE]
-name=$VHostIfName
-ip=$VHostIP/$PrefixLength
-$VHostGatewayConfig
-physical_interface=$PhysIfName
-"@
-
-        # Save file with prepared config
-        [System.IO.File]::WriteAllText($Using:AgentConfigFilePath, $ConfigFileContent)
-    }
-}
-
 function Initialize-ComputeServices {
         Param (
             [Parameter(Mandatory = $true)] [PSSessionT] $Session,
@@ -458,11 +404,13 @@ function Initialize-ComputeServices {
             [Parameter(Mandatory = $true)] [OpenStackConfig] $OpenStackConfig,
             [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
         )
-
-        Initialize-DriverAndExtension -Session $Session `
-            -SystemConfig $SystemConfig `
+        New-CNMPluginConfigFile -Session $Session `
+            -AdapterName $SystemConfig.AdapterName `
             -OpenStackConfig $OpenStackConfig `
             -ControllerConfig $ControllerConfig
+
+        Initialize-DriverAndExtension -Session $Session `
+            -SystemConfig $SystemConfig
 
         New-AgentConfigFile -Session $Session `
             -ControllerConfig $ControllerConfig `

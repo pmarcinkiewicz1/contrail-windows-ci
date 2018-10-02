@@ -62,3 +62,62 @@ function Eventually {
             -Duration $Duration `
             -Name "Eventually"
 }
+
+function Test-WithRetries {
+    Param (
+        [Parameter(Mandatory=$true, Position = 0)] [int] $MaxNumRetries,
+        [Parameter(Mandatory=$true, Position = 1)] [ScriptBlock] $ScriptBlock
+    )
+    $NumRetry = 1
+    $GoodJob = $false
+    while ($NumRetry -le $MaxNumRetries -and -not $GoodJob) {
+        $FailedCountBeforeRunningTests = InModuleScope Pester {
+            return $Pester.FailedCount
+        }
+        $NumRetry += 1
+        Invoke-Command $ScriptBlock
+        $FailedCountAfterRunningTests = InModuleScope Pester {
+            return $Pester.FailedCount
+        }
+        if ($FailedCountBeforeRunningTests -eq $FailedCountAfterRunningTests) {
+            $GoodJob = $true
+        }
+    }
+}
+
+function Test-ResultsWithRetries {
+    Param ([Parameter(Mandatory=$true)] [object] $Results)
+
+    function Test-HasAnySuccess {
+        Param (
+            [Parameter(Mandatory=$true)] [String] $Describe,
+            [Parameter(Mandatory=$true)] [String] $Context,
+            [Parameter(Mandatory=$true)] [String] $Name
+        )
+
+        ForEach ($Result in $Results) {
+            if ($Result.Describe -eq $Describe `
+                -and $Result.Context -eq $Context `
+                -and $Result.Name -eq $Name `
+                -and $Result.Result -eq "Passed") {
+                    return $true
+            }
+        }
+
+        return $false
+    }
+
+    ForEach ($Result in $Results) {
+        if ($Result.Result -eq "Failed") {
+            $AnySuccess = Test-HasAnySuccess `
+                -Describe $Result.Describe `
+                -Context $Result.Context `
+                -Name $Result.Name
+            if (-not $AnySuccess) {
+                return $false
+            }
+        }
+    }
+
+    return $true
+}

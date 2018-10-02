@@ -4,7 +4,9 @@ pipelines:
     failure-message: Build failed (check pipeline).
     success-message: Build succeeeded (check pipeline).
     footer-message: > 
-                      This is a pipeline from Windows CI. For more information, see:
+                      This is a pipeline from Windows CI.
+                      Latest build stats: http://148.251.5.92/d/w9YdWjqzk/build-statistics.
+                      For troubleshooting and FAQ, see:
                       https://github.com/Juniper/contrail-windows-ci/wiki/OpenContrail-Windows-CI-FAQ
     manager: IndependentPipelineManager
     trigger:
@@ -17,6 +19,7 @@ pipelines:
             - ^contrail_dpdk_17_02$
             - ^contrail_dpdk_17_11$
             - ^contrail_dpdk_17_11_3$
+            - ^contrail_dpdk_18_05_1$
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
@@ -31,6 +34,7 @@ pipelines:
             - ^contrail_dpdk_17_02$
             - ^contrail_dpdk_17_11$
             - ^contrail_dpdk_17_11_3$
+            - ^contrail_dpdk_18_05_1$
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
@@ -45,6 +49,7 @@ pipelines:
             - ^contrail_dpdk_17_02$
             - ^contrail_dpdk_17_11$
             - ^contrail_dpdk_17_11_3$
+            - ^contrail_dpdk_18_05_1$
             - ^R5\..*$
             - ^release-3.7-contrail$
             - ^release-3.9-contrail$
@@ -52,6 +57,9 @@ pipelines:
             - ^stable/newton$
             - ^stable/ocata$
           comment: (?i)recheck(( (?:bug|lp)[\s#:]*(\d+))|( no bug))?(\s+clean)?\s*$
+          reject-approval:
+            - username: codilime-ci
+              verified: 1
         - event: comment-added
           comment: (?i)recheck windows$
     start:

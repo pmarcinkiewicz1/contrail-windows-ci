@@ -3,6 +3,7 @@
 
 . $PSScriptRoot\TestConfigurationUtils.ps1
 . $PSScriptRoot\Utils\ContrailNetworkManager.ps1
+. $PSScriptRoot\PesterHelpers\PesterHelpers.ps1
 
 function Invoke-IntegrationAndFunctionalTests {
     Param (
@@ -22,7 +23,7 @@ function Invoke-IntegrationAndFunctionalTests {
     }
     $Results = Invoke-PesterTests -TestRootDir $TestRootDir -ReportPath $PesterOutReportPath `
         -ExcludeTags CI -AdditionalParams $AdditionalParams
-    if ($Results.FailedCount -gt 0) {
+    if (-not (Test-ResultsWithRetries -Results $Results.TestResult)) {
         throw "Some tests failed"
     }
 }

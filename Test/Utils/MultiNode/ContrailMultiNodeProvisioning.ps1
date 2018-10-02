@@ -1,7 +1,7 @@
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
-. $PSScriptRoot\..\ComponentsInstallation.ps1
+. $PSScriptRoot\..\ComputeNode\Installation.ps1
 
 # Import order is chosen explicitly because of class dependency
 . $PSScriptRoot\..\ContrailNetworkManager.ps1
