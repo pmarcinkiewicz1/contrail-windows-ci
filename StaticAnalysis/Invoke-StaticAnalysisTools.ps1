@@ -9,6 +9,7 @@ function Assert-MeetsMinimalAnalyzerVersion($MinimumVersion) {
     try {
         # Maybe it was installed using PSGet?
         $Analyzer = Get-Package -Name PSScriptAnalyzer
+        Write-Host "Found PSScriptAnalyzer $($Analyzer.Version) installed by PSGet."
     } catch {
         # Maybe it was installed by chocolatey?
         try {
@@ -17,12 +18,11 @@ function Assert-MeetsMinimalAnalyzerVersion($MinimumVersion) {
             throw "PSScriptAnalyzer not found. Please install at least version $MinimumVersion."
         }
         $Analyzer = Get-Module -Name PSScriptAnalyzer
+        Write-Host "Found PSScriptAnalyzer $($Analyzer.Version) installed by chocolatey."
     }
 
     if ($Analyzer.Version -lt $MinimumVersion) {
         throw "PSScriptAnalyzer minimum version requirements not met. Make sure that it's at least version $MinimumVersion."
-    } else {
-        Write-Host "Found PSScriptAnalyzer in version $($Analyzer.Version)."
     }
 }
 
@@ -47,7 +47,10 @@ Assert-MeetsMinimalAnalyzerVersion($MinimumVersion)
 $Output = Invoke-ScriptAnalyzer $RootDir -Recurse -Setting $PSLinterConfig
 $Output = Remove-TypeNotFoundWarning $Output
 if ($Output) {
+    Write-Host "Found some issues:"
     Write-Results $Output
     exit 1
+} else {
+    Write-Host "All seems OK."
+    exit 0
 }
-exit 0

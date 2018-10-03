@@ -301,9 +301,6 @@ pipeline {
 
                     unstash 'CIScripts'
 
-                    def relLogsDstDir = logsRelPathBasedOnTriggerSource(env.JOB_NAME,
-                        env.BUILD_NUMBER, env.ZUUL_UUID)
-
                     def logFilename = 'log.full.txt.gz'
 
                     dir('to_publish') {
@@ -319,21 +316,9 @@ pipeline {
 
                         createCompressedLogFile(env.JOB_NAME, env.BUILD_NUMBER, logFilename)
                         shellCommand("${env.WORKSPACE}/CIScripts/LogserverUtils/split-log-into-stages.sh", [logFilename])
-
-                        def auth = sshAuthority(env.LOG_SERVER_USER, env.LOG_SERVER)
-                        def dst = logsDirInFilesystem(env.LOG_ROOT_DIR, env.LOG_SERVER_FOLDER, relLogsDstDir)
-                        publishCurrentDirToLogServer(auth, dst)
-                    }
-
-                    def fullLogsURL = logsURL(env.LOG_SERVER, env.LOG_SERVER_FOLDER, relLogsDstDir)
-                    def logDestMsg = "Full logs URL: ${fullLogsURL}"
-                    echo(logDestMsg)
-                    if (isGithub()) {
-                        sendGithubComment(logDestMsg)
                     }
 
                     unstash "Flakes"
-
                     if (containsFlakiness("to_publish/$logFilename")) {
                         echo "Flakiness detected"
                         if (isGithub()) {
@@ -347,6 +332,19 @@ pipeline {
                                     string(name: 'ZUUL_PATCHSET', value: env.ZUUL_PATCHSET),
                                 ]
                         }
+                    }
+
+                    def auth = sshAuthority(env.LOG_SERVER_USER, env.LOG_SERVER)
+                    def relLogsDstDir = logsRelPathBasedOnTriggerSource(env.JOB_NAME,
+                        env.BUILD_NUMBER, env.ZUUL_UUID)
+                    def dst = logsDirInFilesystem(env.LOG_ROOT_DIR, env.LOG_SERVER_FOLDER, relLogsDstDir)
+                    publishDirToLogServer("to_publish", auth, dst)
+
+                    def fullLogsURL = logsURL(env.LOG_SERVER, env.LOG_SERVER_FOLDER, relLogsDstDir)
+                    def logDestMsg = "Full logs URL: ${fullLogsURL}"
+                    echo(logDestMsg)
+                    if (isGithub()) {
+                        sendGithubComment(logDestMsg)
                     }
                 }
             }
