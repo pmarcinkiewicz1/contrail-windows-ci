@@ -53,12 +53,13 @@ $Results = Invoke-PesterTests -TestRootDir $pwd -ReportPath $ReportPath `
 
 if ($SkipStaticAnalysis) {
     Write-VisibleMessage "-SkipStaticAnalysis switch set, skipping static analysis"
-} elseif (-not (Get-Module PSScriptAnalyzer)) {
-    Write-VisibleMessage "PSScriptAnalyzer module not found. Skipping static analysis.
-        You can install it by running `Install-Module -Name PSScriptAnalyzer`."
 } else {
     Write-VisibleMessage "running static analysis, this might take a while"
-    .\StaticAnalysis\Invoke-StaticAnalysisTools.ps1 -RootDir . -ConfigDir $pwd/StaticAnalysis
+    try {
+        .\StaticAnalysis\Invoke-StaticAnalysisTools.ps1 -RootDir . -ConfigDir $pwd/StaticAnalysis
+    } catch {
+        Write-VisibleMessage "static analysis failed (but continuing script):", $_
+    }
 }
 
 if ($CodeCoverage) {
