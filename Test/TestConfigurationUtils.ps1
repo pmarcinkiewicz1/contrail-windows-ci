@@ -112,39 +112,25 @@ function Start-DockerDriver {
            [Parameter(Mandatory = $false)] [int] $WaitTime = 60)
     Write-Log "Starting Docker Driver"
 
-    # We have to specify some file, because docker driver doesn't
-    # currently support stderr-only logging.
-    # TODO: Remove this when after "no log file" option is supported.
-    $OldLogPath = "NUL"
     $LogDir = Get-ComputeLogsDir
-    $DefaultConfigFilePath = Get-DefaultCNMPluginsConfigPath
-
-    # TODO: delete the "config" argument
-    # when default path for the config file is supported.
-    $Arguments = @(
-        "-logPath", $OldLogPath,
-        "-logLevel", "Debug",
-        "-config", $DefaultConfigFilePath
-    )
 
     Invoke-Command -Session $Session -ScriptBlock {
 
         # Nested ScriptBlock variable passing workaround
-        $Arguments = $Using:Arguments
         $LogDir = $Using:LogDir
 
         Start-Job -ScriptBlock {
-            Param($Arguments, $LogDir)
+            Param($LogDir)
 
             New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-            $LogPath = Join-Path $LogDir "contrail-windows-docker-driver.log"
+            $LogPath = Join-Path $LogDir "contrail-cnm-plugin-std.log"
             $ErrorActionPreference = "Continue"
 
             # "Out-File -Append" in contrary to "Add-Content" doesn't require a read lock, so logs can
             # be read while the process is running
-            & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" $Arguments 2>&1 |
+            & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" 2>&1 |
                 Out-File -Append -FilePath $LogPath
-        } -ArgumentList $Arguments, $LogDir
+        } -ArgumentList $LogDir
     }
 
     Start-Sleep -s $WaitTime

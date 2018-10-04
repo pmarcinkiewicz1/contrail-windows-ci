@@ -3,7 +3,7 @@
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 
 function Get-DefaultCNMPluginsConfigPath {
-    return "C:\ProgramData\Contrail\etc\contrail\cnm-plugin.conf"
+    return "C:\ProgramData\Contrail\etc\contrail\contrail-cnm-plugin.conf"
 }
 
 function New-CNMPluginConfigFile {
@@ -14,7 +14,7 @@ function New-CNMPluginConfigFile {
         [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
     )
     $ConfigPath = Get-DefaultCNMPluginsConfigPath
-
+    
     $Config = @"
 [DRIVER]
 Adapter=$AdapterName
@@ -22,6 +22,9 @@ ControllerIP=$( $ControllerConfig.Address )
 ControllerPort=8082
 AgentURL=http://127.0.0.1:9091
 VSwitchName=Layered?<adapter>
+
+[LOGGING]
+LogLevel=Debug
 
 [AUTH]
 AuthMethod=$( $ControllerConfig.AuthMethod )
