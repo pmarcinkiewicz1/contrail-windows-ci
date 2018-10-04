@@ -10,5 +10,8 @@ cmdlets = [
     "Disconnect-VBRServer",
     "Start-VBRZip",
     "Find-VBRViEntity",
+    "Test-NetConnection",
+    "Get-NetFirewallProfile",
     "vrfstats",
+    "contrail-nodemgr"
 ]

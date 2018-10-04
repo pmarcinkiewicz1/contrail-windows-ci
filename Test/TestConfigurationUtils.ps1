@@ -1,12 +1,12 @@
 . $PSScriptRoot\..\CIScripts\Common\Invoke-UntilSucceeds.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-NativeCommand.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-CommandWithFunctions.ps1
-. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
+# [Shelly-Bug] Shelly doesn't detect imported classes yet.
+. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1 # allow unused-imports
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
 . $PSScriptRoot\Utils\ComputeNode\Configuration.ps1
 . $PSScriptRoot\Utils\DockerImageBuild.ps1
-. $PSScriptRoot\Utils\NetAdapterInfo\RemoteHost.ps1
 . $PSScriptRoot\PesterLogger\PesterLogger.ps1
 
 $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS = 60
@@ -311,15 +311,6 @@ function Wait-RemoteInterfaceIP {
             | Select-ValidNetIPInterface
         }
     } | Out-Null
-}
-
-function Get-NodeManagementIP {
-    Param([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-    return Invoke-Command -Session $Session -ScriptBlock { Get-NetIPAddress |
-        Where-Object InterfaceAlias -like "Ethernet0*" |
-        Where-Object AddressFamily -eq IPv4 |
-        Select-Object -ExpandProperty IPAddress
-    }
 }
 
 # Before running this function make sure CNM-Plugin config file is created.

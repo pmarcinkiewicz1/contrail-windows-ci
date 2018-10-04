@@ -8,7 +8,6 @@ Param (
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
 . $PSScriptRoot\TestConfigurationUtils.ps1
-. $PSScriptRoot\PesterLogger\PesterLogger.ps1
 
 Describe "New-Container" -Tags CI, Systest {
     It "Reports container id when container creation succeeds in first attempt" {

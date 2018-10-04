@@ -4,7 +4,6 @@
 . $PSScriptRoot\ContrailAPI\VirtualNetwork.ps1
 . $PSScriptRoot\ContrailUtils.ps1
 . $PSScriptRoot\ContrailAPI\GlobalVrouterConfig.ps1
-. $PSScriptRoot\..\TestConfigurationUtils.ps1
 
 class ContrailNetworkManager {
     [String] $AuthToken;

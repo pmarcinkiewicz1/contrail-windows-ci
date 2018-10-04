@@ -1,7 +1,5 @@
-. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\TestRunner\Invoke-PesterTests.ps1
 
-. $PSScriptRoot\TestConfigurationUtils.ps1
 . $PSScriptRoot\Utils\ContrailNetworkManager.ps1
 . $PSScriptRoot\PesterHelpers\PesterHelpers.ps1
 

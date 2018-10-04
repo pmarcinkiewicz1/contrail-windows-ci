@@ -1,3 +1,5 @@
+. $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
+
 function Start-UDPEchoServerInContainer {
     Param (
         [Parameter(Mandatory=$true)] [PSSessionT] $Session,

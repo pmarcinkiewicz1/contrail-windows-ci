@@ -1,6 +1,9 @@
-. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
+# [Shelly-Bug] Shelly doesn't detect imported classes yet.
+. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1 # allow unused-imports
+
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\..\..\TestConfigurationUtils.ps1
+
 . $PSScriptRoot\..\DockerNetwork\DockerNetwork.ps1
 
 function Initialize-ComputeNode {

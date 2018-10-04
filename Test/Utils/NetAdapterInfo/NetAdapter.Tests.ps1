@@ -3,7 +3,9 @@ Param (
     [Parameter(ValueFromRemainingArguments=$true)] $UnusedParams
 )
 
-. $PSScriptRoot\RemoteContainer.ps1
+. $PSScriptRoot\..\..\..\CIScripts\Common\Init.ps1
+
+. $PSScriptRoot\Impl.ps1
 
 Describe "Get-RemoteContainerNetAdapterInformation - Unit tests" -Tags CI, Unit {
     Context "Valid structure" {

@@ -4,7 +4,6 @@ Param (
     [Parameter(ValueFromRemainingArguments=$true)] $AdditionalParams
 )
 
-. $PSScriptRoot\..\CIScripts\Common\Invoke-NativeCommand.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
