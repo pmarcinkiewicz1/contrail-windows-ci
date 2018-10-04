@@ -11,6 +11,7 @@
 
 $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS = 60
 $TIME_BETWEEN_AGENT_CHECKS_IN_SECONDS = 2
+$AGENT_EXECUTABLE_PATH = "C:/Program Files/Juniper Networks/agent/contrail-vrouter-agent.exe"
 
 function Stop-ProcessIfExists {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
@@ -33,6 +34,35 @@ function Test-IsProcessRunning {
     }
 
     return [bool] $Proc
+}
+
+function Assert-AreDLLsPresent {
+    Param (
+        [Parameter(Mandatory=$true)] $ExitCode
+    )
+    #https://msdn.microsoft.com/en-us/library/cc704588.aspx
+    #Value below is taken from the link above and it indicates
+    #that application failed to load some DLL.
+    $MissingDLLsErrorReturnCode = [int64]0xC0000135
+    $System32Dir = "C:/Windows/System32"
+
+    if ([int64]$ExitCode -eq $MissingDLLsErrorReturnCode) {
+        $VisualDLLs = @("msvcp140d.dll", "ucrtbased.dll", "vcruntime140d.dll")
+        $MissingVisualDLLs = @()
+
+        foreach($DLL in $VisualDLLs) {
+            if (-not (Test-Path $(Join-Path $System32Dir $DLL))) {
+                $MissingVisualDLLs += $DLL
+            }
+        }
+
+        if ($MissingVisualDLLs.count -ne 0) {
+            throw "$MissingVisualDLLs must be present in $System32Dir"
+        }
+        else {
+            throw "Some other not known DLL(s) couldn't be loaded"
+        }
+    }
 }
 
 function Enable-VRouterExtension {
@@ -186,10 +216,46 @@ function Test-IsDockerDriverEnabled {
         (Test-IsDockerPluginRegistered)
 }
 
+function Test-IfUtilsCanLoadDLLs {
+    Param (
+        [Parameter(Mandatory = $true)] [PSSessionT] $Session
+    )
+    $Utils = @(
+        "vif.exe",
+        "nh.exe",
+        "rt.exe",
+        "flow.exe"
+    )
+    Invoke-CommandWithFunctions `
+        -Session $Session `
+        -Functions "Assert-AreDLLsPresent" `
+        -ScriptBlock {
+            foreach ($Util in $using:Utils) {
+                & $Util 2>&1 | Out-Null
+                Assert-AreDLLsPresent -ExitCode $LastExitCode
+            }
+    }
+}
+
+function Test-IfAgentCanLoadDLLs {
+    Param (
+        [Parameter(Mandatory = $true)] [PSSessionT] $Session
+    )
+    Invoke-CommandWithFunctions `
+        -Session $Session `
+        -Functions "Assert-AreDLLsPresent" `
+        -ScriptBlock {
+            & $using:AGENT_EXECUTABLE_PATH --version 2>&1 | Out-Null
+            Assert-AreDLLsPresent -ExitCode $LastExitCode
+    }
+}
+
 function Enable-AgentService {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
     Write-Log "Starting Agent"
+
+    Test-IfAgentCanLoadDLLs -Session $Session
+
     $Output = Invoke-NativeCommand -Session $Session -ScriptBlock {
         $Output = netstat -abq  #dial tcp bug debug output
         Start-Service ContrailAgent

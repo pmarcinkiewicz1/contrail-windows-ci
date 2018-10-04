@@ -40,6 +40,7 @@ Describe "Single compute node protocol tests with utils" {
 
         Invoke-Command -Session $Session -ScriptBlock {
             vif.exe --add $Using:VMNetInfo.IfName --mac $Using:VMNetInfo.MACAddress --vrf 0 --type physical
+
             vif.exe --add $Using:VHostInfo.IfName --mac $Using:VHostInfo.MACAddress --vrf 0 --type vhost --xconnect $Using:VMNetInfo.IfName
 
             vif.exe --add $Using:Container1NetInfo.IfName --mac $Using:Container1NetInfo.MACAddress --vrf 1 --type virtual
@@ -52,7 +53,6 @@ Describe "Single compute node protocol tests with utils" {
             rt.exe -c -v 1 -f 1 -e ff:ff:ff:ff:ff:ff -n 3
             rt.exe -c -v 1 -f 1 -e $Using:Container1NetInfo.MACAddress -n 1
             rt.exe -c -v 1 -f 1 -e $Using:Container2NetInfo.MACAddress -n 2
-
         }
     }
 
@@ -195,6 +195,8 @@ Describe "Single compute node protocol tests with utils" {
         )]
         $ContrailNM = [ContrailNetworkManager]::new($OpenStackConfig, $ControllerConfig)
         $ContrailNM.EnsureProject($null)
+
+        Test-IfUtilsCanLoadDLLs -Session $Session
     }
 
     AfterAll {
