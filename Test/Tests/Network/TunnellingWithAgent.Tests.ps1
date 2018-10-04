@@ -223,13 +223,14 @@ Test-WithRetries 3 {
         }
 
         AfterAll {
-            $Sessions = $MultiNode.Sessions
-            $SystemConfig = $MultiNode.Configs.System
-            Clear-TestConfiguration -Session $Sessions[0] -SystemConfig $SystemConfig
-            Clear-TestConfiguration -Session $Sessions[1] -SystemConfig $SystemConfig
-            Clear-Logs -LogSources (New-FileLogSource -Path (Get-ComputeLogsPath) -Sessions $Sessions)
-
             if (Get-Variable "MultiNode" -ErrorAction SilentlyContinue) {
+                $Sessions = $MultiNode.Sessions
+                $SystemConfig = $MultiNode.Configs.System
+
+                Clear-TestConfiguration -Session $Sessions[0] -SystemConfig $SystemConfig
+                Clear-TestConfiguration -Session $Sessions[1] -SystemConfig $SystemConfig
+                Clear-Logs -LogSources (New-FileLogSource -Path (Get-ComputeLogsPath) -Sessions $Sessions)
+
                 Write-Log "Deleting virtual network"
                 if (Get-Variable ContrailNetwork -ErrorAction SilentlyContinue) {
                     $MultiNode.NM.RemoveNetwork($ContrailNetwork)

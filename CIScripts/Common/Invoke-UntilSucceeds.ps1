@@ -78,20 +78,21 @@ function Invoke-UntilSucceeds {
         try {
             $ReturnVal = Invoke-Command $ScriptBlock
 
-            if ($AssumeTrue -Or $ReturnVal) {
+            if ($AssumeTrue -or $ReturnVal) {
                 return $ReturnVal
             } else {
-                throw New-Object -TypeName CITimeoutException("${Name}: Did not evaluate to True." +
-                    "Last return value encountered was: $ReturnVal.")
+                throw [CITimeoutException]::new(
+                    "${Name}: Did not evaluate to True. Last return value encountered was: $ReturnVal."
+                )
             }
         } catch [HardError] {
-            throw New-Object -TypeName CITimeoutException(
+            throw [CITimeoutException]::new(
                 "${Name}: Stopped retrying because HardError was thrown",
                 $_.Exception.InnerException
             )
         } catch {
             if ($LastCheck) {
-                throw New-Object -TypeName CITimeoutException("$Name failed.", $_.Exception)
+                throw [CITimeoutException]::new("$Name failed.", $_.Exception)
             } else {
                 Start-Sleep -Seconds $Interval
             }
