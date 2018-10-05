@@ -4,7 +4,8 @@ Param (
     [Parameter(ValueFromRemainingArguments=$true)] $AdditionalParams
 )
 
-. $PSScriptRoot\PesterLogger\PesterLogger.ps1
+. $PSScriptRoot\..\CIScripts\Common\Init.ps1
+
 . $PSScriptRoot\PesterHelpers\PesterHelpers.ps1
 
 Describe "Test-ResultsWithRetries" -Tags CI, Systest {

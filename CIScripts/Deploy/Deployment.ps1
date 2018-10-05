@@ -1,5 +1,4 @@
 . $PSScriptRoot\..\Common\Aliases.ps1
-. $PSScriptRoot\..\Common\Components.ps1
 
 function Copy-ArtifactsToTestbeds {
     Param ([Parameter(Mandatory = $true)] [PSSessionT[]] $Sessions,

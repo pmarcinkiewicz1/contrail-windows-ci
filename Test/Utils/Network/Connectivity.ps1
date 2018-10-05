@@ -1,3 +1,5 @@
+. $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
+
 . $PSScriptRoot/UDPClient.ps1
 . $PSScriptRoot/UDPEchoServer.ps1
 

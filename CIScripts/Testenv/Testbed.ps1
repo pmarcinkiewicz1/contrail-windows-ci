@@ -1,5 +1,4 @@
 . $PSScriptRoot\..\Common\Credentials.ps1
-. $PSScriptRoot\Testenv.ps1
 
 function Get-TestbedCredential {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingConvertToSecureStringWithPlainText",

@@ -7,14 +7,12 @@
 $Credentials = Get-MgmtCreds
 
 $OutputRootDirectory = "output"
-$NothingToBuild = $Env:COMPONENTS_TO_BUILD -eq "None"
+
 $CopyDisabledArtifacts = Test-Path Env:COPY_DISABLED_ARTIFACTS
 
-if (-not $NothingToBuild) {
-    & $PSScriptRoot\Build.ps1
-}
+& $PSScriptRoot\Build.ps1
 
-if ($NothingToBuild -or $CopyDisabledArtifacts) {
+if ($CopyDisabledArtifacts) {
     $Job = [Job]::new("Copying ready artifacts")
 
     $ArtifactsPath = "\\$Env:SHARED_DRIVE_IP\SharedFiles\WindowsCI-Artifacts"

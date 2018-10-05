@@ -1,9 +1,14 @@
 . $PSScriptRoot\..\..\..\CIScripts\Common\Init.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Common\Invoke-CommandWithFunctions.ps1
-. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
+
+# [Shelly-Bug] Shelly doesn't detect imported classes yet.
+. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1 # allow unused-imports
+. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
+
+. $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteHost.ps1
 
 function Get-DefaultCNMPluginsConfigPath {
-    return "C:\ProgramData\Contrail\etc\contrail\cnm-plugin.conf"
+    return "C:\ProgramData\Contrail\etc\contrail\contrail-cnm-plugin.conf"
 }
 
 function New-CNMPluginConfigFile {
@@ -14,7 +19,7 @@ function New-CNMPluginConfigFile {
         [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
     )
     $ConfigPath = Get-DefaultCNMPluginsConfigPath
-
+    
     $Config = @"
 [DRIVER]
 Adapter=$AdapterName
@@ -22,6 +27,9 @@ ControllerIP=$( $ControllerConfig.Address )
 ControllerPort=8082
 AgentURL=http://127.0.0.1:9091
 VSwitchName=Layered?<adapter>
+
+[LOGGING]
+LogLevel=Debug
 
 [AUTH]
 AuthMethod=$( $ControllerConfig.AuthMethod )
@@ -41,6 +49,16 @@ Os_token=
 
 function Get-DefaultNodeMgrsConfigPath {
     return "C:\ProgramData\Contrail\etc\contrail\contrail-vrouter-nodemgr.conf"
+}
+
+
+function Get-NodeManagementIP {
+    Param([Parameter(Mandatory = $true)] [PSSessionT] $Session)
+    return Invoke-Command -Session $Session -ScriptBlock { Get-NetIPAddress |
+        Where-Object InterfaceAlias -like "Ethernet0*" | # TODO: this is hardcoded and bad.
+        Where-Object AddressFamily -eq IPv4 |
+        Select-Object -ExpandProperty IPAddress
+    }
 }
 
 function New-NodeMgrConfigFile {

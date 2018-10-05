@@ -1,16 +1,17 @@
 . $PSScriptRoot\..\CIScripts\Common\Invoke-UntilSucceeds.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-NativeCommand.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-CommandWithFunctions.ps1
-. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
+# [Shelly-Bug] Shelly doesn't detect imported classes yet.
+. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1 # allow unused-imports
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
 . $PSScriptRoot\Utils\ComputeNode\Configuration.ps1
 . $PSScriptRoot\Utils\DockerImageBuild.ps1
-. $PSScriptRoot\Utils\NetAdapterInfo\RemoteHost.ps1
 . $PSScriptRoot\PesterLogger\PesterLogger.ps1
 
 $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS = 60
 $TIME_BETWEEN_AGENT_CHECKS_IN_SECONDS = 2
+$AGENT_EXECUTABLE_PATH = "C:/Program Files/Juniper Networks/agent/contrail-vrouter-agent.exe"
 
 function Stop-ProcessIfExists {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
@@ -33,6 +34,35 @@ function Test-IsProcessRunning {
     }
 
     return [bool] $Proc
+}
+
+function Assert-AreDLLsPresent {
+    Param (
+        [Parameter(Mandatory=$true)] $ExitCode
+    )
+    #https://msdn.microsoft.com/en-us/library/cc704588.aspx
+    #Value below is taken from the link above and it indicates
+    #that application failed to load some DLL.
+    $MissingDLLsErrorReturnCode = [int64]0xC0000135
+    $System32Dir = "C:/Windows/System32"
+
+    if ([int64]$ExitCode -eq $MissingDLLsErrorReturnCode) {
+        $VisualDLLs = @("msvcp140d.dll", "ucrtbased.dll", "vcruntime140d.dll")
+        $MissingVisualDLLs = @()
+
+        foreach($DLL in $VisualDLLs) {
+            if (-not (Test-Path $(Join-Path $System32Dir $DLL))) {
+                $MissingVisualDLLs += $DLL
+            }
+        }
+
+        if ($MissingVisualDLLs.count -ne 0) {
+            throw "$MissingVisualDLLs must be present in $System32Dir"
+        }
+        else {
+            throw "Some other not known DLL(s) couldn't be loaded"
+        }
+    }
 }
 
 function Enable-VRouterExtension {
@@ -112,39 +142,25 @@ function Start-DockerDriver {
            [Parameter(Mandatory = $false)] [int] $WaitTime = 60)
     Write-Log "Starting Docker Driver"
 
-    # We have to specify some file, because docker driver doesn't
-    # currently support stderr-only logging.
-    # TODO: Remove this when after "no log file" option is supported.
-    $OldLogPath = "NUL"
     $LogDir = Get-ComputeLogsDir
-    $DefaultConfigFilePath = Get-DefaultCNMPluginsConfigPath
-
-    # TODO: delete the "config" argument
-    # when default path for the config file is supported.
-    $Arguments = @(
-        "-logPath", $OldLogPath,
-        "-logLevel", "Debug",
-        "-config", $DefaultConfigFilePath
-    )
 
     Invoke-Command -Session $Session -ScriptBlock {
 
         # Nested ScriptBlock variable passing workaround
-        $Arguments = $Using:Arguments
         $LogDir = $Using:LogDir
 
         Start-Job -ScriptBlock {
-            Param($Arguments, $LogDir)
+            Param($LogDir)
 
             New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-            $LogPath = Join-Path $LogDir "contrail-windows-docker-driver.log"
+            $LogPath = Join-Path $LogDir "contrail-cnm-plugin-std.log"
             $ErrorActionPreference = "Continue"
 
             # "Out-File -Append" in contrary to "Add-Content" doesn't require a read lock, so logs can
             # be read while the process is running
-            & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" $Arguments 2>&1 |
+            & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" 2>&1 |
                 Out-File -Append -FilePath $LogPath
-        } -ArgumentList $Arguments, $LogDir
+        } -ArgumentList $LogDir
     }
 
     Start-Sleep -s $WaitTime
@@ -200,10 +216,46 @@ function Test-IsDockerDriverEnabled {
         (Test-IsDockerPluginRegistered)
 }
 
+function Test-IfUtilsCanLoadDLLs {
+    Param (
+        [Parameter(Mandatory = $true)] [PSSessionT] $Session
+    )
+    $Utils = @(
+        "vif.exe",
+        "nh.exe",
+        "rt.exe",
+        "flow.exe"
+    )
+    Invoke-CommandWithFunctions `
+        -Session $Session `
+        -Functions "Assert-AreDLLsPresent" `
+        -ScriptBlock {
+            foreach ($Util in $using:Utils) {
+                & $Util 2>&1 | Out-Null
+                Assert-AreDLLsPresent -ExitCode $LastExitCode
+            }
+    }
+}
+
+function Test-IfAgentCanLoadDLLs {
+    Param (
+        [Parameter(Mandatory = $true)] [PSSessionT] $Session
+    )
+    Invoke-CommandWithFunctions `
+        -Session $Session `
+        -Functions "Assert-AreDLLsPresent" `
+        -ScriptBlock {
+            & $using:AGENT_EXECUTABLE_PATH --version 2>&1 | Out-Null
+            Assert-AreDLLsPresent -ExitCode $LastExitCode
+    }
+}
+
 function Enable-AgentService {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
     Write-Log "Starting Agent"
+
+    Test-IfAgentCanLoadDLLs -Session $Session
+
     $Output = Invoke-NativeCommand -Session $Session -ScriptBlock {
         $Output = netstat -abq  #dial tcp bug debug output
         Start-Service ContrailAgent
@@ -325,15 +377,6 @@ function Wait-RemoteInterfaceIP {
             | Select-ValidNetIPInterface
         }
     } | Out-Null
-}
-
-function Get-NodeManagementIP {
-    Param([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-    return Invoke-Command -Session $Session -ScriptBlock { Get-NetIPAddress |
-        Where-Object InterfaceAlias -like "Ethernet0*" |
-        Where-Object AddressFamily -eq IPv4 |
-        Select-Object -ExpandProperty IPAddress
-    }
 }
 
 # Before running this function make sure CNM-Plugin config file is created.

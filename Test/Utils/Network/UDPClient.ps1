@@ -1,3 +1,5 @@
+. $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
+
 function Send-UDPFromContainer {
     Param (
         [Parameter(Mandatory=$true)] [PSSessionT] $Session,

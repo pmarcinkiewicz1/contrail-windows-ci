@@ -1,5 +1,7 @@
 . $PSScriptRoot\..\..\..\CIScripts\Common\Aliases.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Common\Invoke-UntilSucceeds.ps1
+. $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
+
 . $PSScriptRoot\Impl.ps1
 
 function Get-RemoteContainerNetAdapterInformation {
