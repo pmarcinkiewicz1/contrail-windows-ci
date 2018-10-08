@@ -2,6 +2,7 @@
 . $PSScriptRoot\ContrailAPI\FloatingIPPool.ps1
 . $PSScriptRoot\ContrailAPI\NetworkPolicy.ps1
 . $PSScriptRoot\ContrailAPI\VirtualNetwork.ps1
+. $PSScriptRoot\ContrailAPI\VirtualRouter.ps1
 . $PSScriptRoot\ContrailUtils.ps1
 . $PSScriptRoot\ContrailAPI\GlobalVrouterConfig.ps1
 
@@ -44,8 +45,7 @@ class ContrailNetworkManager {
             $this.AddProject($TenantName)
         }
         catch {
-            if ($_.Exception -match "\(409\)") {
-            } else {
+            if ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::Conflict) {
                 throw
             }
         }
@@ -55,7 +55,7 @@ class ContrailNetworkManager {
     # TODO return a class (perhaps use the class from MultiTenancy test?)
     # We cannot add a type to $SubnetConfig parameter,
     # because the class is parsed before the files are sourced.
-    [String] AddNetwork([String] $TenantName, [String] $Name, $SubnetConfig) {
+    [String] AddOrReplaceNetwork([String] $TenantName, [String] $Name, $SubnetConfig) {
         if (-not $TenantName) {
             $TenantName = $this.DefaultTenantName
         }
@@ -68,7 +68,7 @@ class ContrailNetworkManager {
                 -NetworkName $Name `
                 -SubnetConfig $SubnetConfig
         } catch {
-            if ($_.Exception -notmatch "\(409\)") {
+            if ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::Conflict) {
                 throw
             }
 
@@ -90,19 +90,37 @@ class ContrailNetworkManager {
     }
 
     RemoveNetwork([String] $Uuid) {
-
         Remove-ContrailVirtualNetwork `
             -ContrailUrl $this.ContrailUrl `
             -AuthToken $this.AuthToken `
             -NetworkUuid $Uuid
     }
 
-    [String] AddVirtualRouter([String] $RouterName, [String] $RouterIp) {
-        return Add-ContrailVirtualRouter `
-            -ContrailUrl $this.ContrailUrl `
-            -AuthToken $this.AuthToken `
-            -RouterName $RouterName `
-            -RouterIp $RouterIp
+    [String] AddOrReplaceVirtualRouter([String] $RouterName, [String] $RouterIp) {
+        try {
+            return Add-ContrailVirtualRouter `
+                -ContrailUrl $this.ContrailUrl `
+                -AuthToken $this.AuthToken `
+                -RouterName $RouterName `
+                -RouterIp $RouterIp
+        } catch {
+            if ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::Conflict) {
+                throw
+            }
+
+            $RouterUuid = Get-ContrailVirtualRouterUuidByName `
+                -ContrailUrl $this.ContrailUrl `
+                -AuthToken $this.AuthToken `
+                -RouterName $RouterName
+
+            $this.RemoveVirtualRouter($RouterUuid)
+
+            return Add-ContrailVirtualRouter `
+                -ContrailUrl $this.ContrailUrl `
+                -AuthToken $this.AuthToken `
+                -RouterName $RouterName `
+                -RouterIp $RouterIp
+        }
     }
 
     RemoveVirtualRouter([String] $RouterUuid) {

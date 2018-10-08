@@ -11,16 +11,17 @@ function Get-ContrailVirtualNetworkUuidByName {
     $Response = Invoke-RestMethod -Uri $RequestUrl -Headers @{"X-Auth-Token" = $AuthToken} -Method Get
     $Networks = $Response.'virtual-networks'
 
+    $ExpectedFqName = @("default-domain", $TenantName, $NetworkName)
     foreach ($Network in $Networks) {
         $FqName = $Network.fq_name
-        $AreFqNamesEqual = $null -eq $(Compare-Object $FqName @("default-domain", $TenantName, $NetworkName))
+        $AreFqNamesEqual = $null -eq $(Compare-Object $FqName $ExpectedFqName)
 
         if ($AreFqNamesEqual) {
             return $Network.uuid
         }
     }
 
-    return $null
+    throw "Contrail virtual network with name '$($ExpectedFqname -join ":")' cannot be found."
 }
 
 function Add-ContrailVirtualNetwork {
