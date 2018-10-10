@@ -23,7 +23,12 @@ function Install-ServiceWithNSSM {
         Write-Log "$ServiceName service already created, continuing..."
     }
     else {
-        throw [HardError]::new("Unknown (wild) error appeared while creating $ServiceName service")
+        $ExceptionMessage = @"
+Unknown (wild) error appeared while creating $ServiceName service.
+ExitCode: $Output.ExitCode
+NSSM output: $Output.Output
+"@
+        throw [HardError]::new($ExceptionMessage)
     }
 }
 
@@ -40,7 +45,7 @@ function Remove-ServiceWithNSSM {
     Write-Log $Output
 }
 
-function Enable-Service {
+function Start-RemoteService {
     Param (
         [Parameter(Mandatory=$true)] $Session,
         [Parameter(Mandatory=$true)] $ServiceName
@@ -51,7 +56,7 @@ function Enable-Service {
     } | Out-Null
 }
 
-function Disable-Service {
+function Stop-RemoteService {
     Param (
         [Parameter(Mandatory=$true)] $Session,
         [Parameter(Mandatory=$true)] $ServiceName
@@ -67,6 +72,7 @@ function Get-ServiceStatus {
         [Parameter(Mandatory=$true)] $Session,
         [Parameter(Mandatory=$true)] $ServiceName
     )
+
     Invoke-Command -Session $Session -ScriptBlock {
         $Service = Get-Service $using:ServiceName -ErrorAction SilentlyContinue
         if ($Service -and $Service.Status) {
@@ -83,7 +89,7 @@ function Out-StdoutAndStderrToLogFile {
         [Parameter(Mandatory=$true)] $ServiceName,
         [Parameter(Mandatory=$true)] $LogPath
     )
-    #redirect stdout and stderr to the log file
+
     $Output = Invoke-NativeCommand -Session $Session -ScriptBlock {
         nssm set $using:ServiceName AppStdout $using:LogPath
         nssm set $using:ServiceName AppStderr $using:LogPath
