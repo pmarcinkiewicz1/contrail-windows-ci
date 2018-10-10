@@ -93,7 +93,7 @@ function Out-StdoutAndStderrToLogFile {
     $Output = Invoke-NativeCommand -Session $Session -ScriptBlock {
         nssm set $using:ServiceName AppStdout $using:LogPath
         nssm set $using:ServiceName AppStderr $using:LogPath
-    }
+    } -CaptureOutput
 
     Write-Log $Output.Output
 }
