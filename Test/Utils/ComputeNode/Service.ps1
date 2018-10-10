@@ -42,7 +42,7 @@ function Remove-ServiceWithNSSM {
         nssm remove $using:ServiceName confirm
     } -CaptureOutput
 
-    Write-Log $Output
+    Write-Log $Output.Output
 }
 
 function Start-RemoteService {
@@ -95,5 +95,5 @@ function Out-StdoutAndStderrToLogFile {
         nssm set $using:ServiceName AppStderr $using:LogPath
     }
 
-    Write-Log $Output
+    Write-Log $Output.Output
 }
