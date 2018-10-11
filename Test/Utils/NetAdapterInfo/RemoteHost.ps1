@@ -1,6 +1,5 @@
 . $PSScriptRoot\..\..\..\CIScripts\Common\Aliases.ps1
-# [Shelly-Bug] Shelly doesn't detect imported classes yet.
-. $PSScriptRoot\Impl.ps1 # allow unused-imports
+. $PSScriptRoot\Impl.ps1
 
 function Get-RemoteNetAdapterInformation {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
