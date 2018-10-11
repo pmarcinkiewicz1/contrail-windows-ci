@@ -18,7 +18,7 @@ function New-CNMPluginConfigFile {
         [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
     )
     $ConfigPath = Get-DefaultCNMPluginsConfigPath
-    
+
     $Config = @"
 [DRIVER]
 Adapter=$AdapterName
@@ -144,6 +144,10 @@ platform=windows
 
 [CONTROL-NODE]
 servers=$ControllerIP
+
+[DNS]
+dns_client_port=53
+servers=$($ControllerIP):53
 
 [VIRTUAL-HOST-INTERFACE]
 name=$VHostIfName
