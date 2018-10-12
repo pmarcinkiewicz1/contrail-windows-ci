@@ -63,7 +63,7 @@ function Stop-RemoteService {
     )
 
     Invoke-Command -Session $Session -ScriptBlock {
-        Stop-Service $using:ServiceName -ErrorAction SilentlyContinue
+        Stop-Service $using:ServiceName
     } | Out-Null
 }
 
