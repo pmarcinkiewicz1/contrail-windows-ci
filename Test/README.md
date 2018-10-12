@@ -10,7 +10,7 @@ This document describes how to set up everything needed for running Windows sani
 
 ### CodiLime lab
 
-To deploy in local CodiLime VMWare lab, follow [this](https://juniper.github.io/contrail-windows-docs/contrail_deployment/Devenv_in_local_env/) document.
+To deploy in local CodiLime VMWare lab, follow [this](https://juniper.github.io/contrail-windows-docs/For%20developers/Developer%20guide/Setting%20up/Devenv_in_local_env/) document.
 
 ### Juniper lab
 
@@ -18,7 +18,7 @@ Test lab can be provisioned easily in Juniper infra using Deploy-Dev-Env job in 
 
 ### Other
 
-There are different ways to deploy. Refer to [this](https://juniper.github.io/contrail-windows-docs/contrail_deployment/contrail_deployment_manual/) document for more information.
+There are different ways to deploy. Refer to [this](https://juniper.github.io/contrail-windows-docs/Quick_start/deployment/) document for more information.
 
 ## Deploying artifacts
 
@@ -186,4 +186,4 @@ admin@10.7.0.60:/network-policy> exit
 ```
 ## CI Selfcheck
 
-To run CI Selfcheck please see [this document](../../SELFCHECK.md).
+To run CI Selfcheck please see [this document](../SELFCHECK.md).
