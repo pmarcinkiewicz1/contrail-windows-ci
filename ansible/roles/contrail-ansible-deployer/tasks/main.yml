@@ -6,7 +6,7 @@
     state: present
   become: true
   with_items:
-    - ansible
+    - ansible-2.4.2.0-1.el7
     - git
 
 - name: Clone contrail-ansible-deployer repository
