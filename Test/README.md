@@ -14,7 +14,9 @@ To deploy in local CodiLime VMWare lab, follow [this](https://juniper.github.io/
 
 ### Juniper lab
 
-Test lab can be provisioned easily in Juniper infra using Deploy-Dev-Env job in Windows CI Jenkins.
+Test lab can be provisioned easily in Juniper infra using Deploy-Dev-Env job in Windows CI Jenkins. Please refer
+to [this](https://juniper.github.io/contrail-windows-docs/For%20developers/Developer%20guide/Setting%20up/Juni_lab/)
+document.
 
 ### Other
 
