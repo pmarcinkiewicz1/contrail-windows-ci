@@ -13,5 +13,7 @@ cmdlets = [
     "Test-NetConnection",
     "Get-NetFirewallProfile",
     "vrfstats",
-    "contrail-nodemgr"
+    "contrail-nodemgr",
+    "nssm",
+    "netstat"
 ]
