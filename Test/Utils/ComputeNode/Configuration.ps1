@@ -10,6 +10,10 @@ function Get-DefaultCNMPluginsConfigPath {
     return "C:\ProgramData\Contrail\etc\contrail\contrail-cnm-plugin.conf"
 }
 
+function Get-DefaultAgentConfigPath {
+    return "C:\ProgramData\Contrail\etc\contrail\contrail-vrouter-agent.conf"
+}
+
 function New-CNMPluginConfigFile {
     Param (
         [Parameter(Mandatory = $true)] [PSSessionT] $Session,

@@ -2,6 +2,7 @@
 . $PSScriptRoot\..\..\..\CIScripts\Common\Invoke-NativeCommand.ps1
 . $PSScriptRoot\..\..\PesterLogger\PesterLogger.ps1
 . $PSScriptRoot\Configuration.ps1
+. $PSScriptRoot\Service.ps1
 
 function Invoke-MsiExec {
     Param (
@@ -40,12 +41,23 @@ function Install-Agent {
 
     Write-Log "Installing Agent"
     Invoke-MsiExec -Session $Session -Path "C:\Artifacts\contrail-vrouter-agent.msi"
+
+    #TODO: remove this if conditional after msi do not anymore create agent's service
+    $ServiceStatus = Get-ServiceStatus -Session $Session -ServiceName "ContrailAgent"
+
+    $IsOldAgentServicePresent = ($ServiceStatus -eq "Running") -or ($ServiceStatus -eq "Started")
+    if ($IsOldAgentServicePresent) {
+        Stop-RemoteService -Session $Session -ServiceName "ContrailAgent"
+    }
+    New-AgentService -Session $Session
 }
 
 function Uninstall-Agent {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
 
     Write-Log "Uninstalling Agent"
+
+    Remove-AgentService -Session $Session
     Invoke-MsiExec -Uninstall -Session $Session -Path "C:\Artifacts\contrail-vrouter-agent.msi"
 }
 
