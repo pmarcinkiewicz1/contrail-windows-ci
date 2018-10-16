@@ -135,66 +135,6 @@ function Test-IsVRouterExtensionEnabled {
     return $($Ext.Enabled -and $Ext.Running)
 }
 
-function Start-DockerDriver {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
-           [Parameter(Mandatory = $false)] [int] $WaitTime = 60)
-    Write-Log "Starting Docker Driver"
-
-    $LogDir = Get-ComputeLogsDir
-
-    Invoke-Command -Session $Session -ScriptBlock {
-
-        # Nested ScriptBlock variable passing workaround
-        $LogDir = $Using:LogDir
-
-        Start-Job -ScriptBlock {
-            Param($LogDir)
-
-            New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-            $LogPath = Join-Path $LogDir "contrail-cnm-plugin-std.log"
-            $ErrorActionPreference = "Continue"
-
-            # "Out-File -Append" in contrary to "Add-Content" doesn't require a read lock, so logs can
-            # be read while the process is running
-            & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" 2>&1 |
-                Out-File -Append -FilePath $LogPath
-        } -ArgumentList $LogDir
-    }
-
-    Start-Sleep -s $WaitTime
-}
-
-function Stop-DockerDriver {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
-    Write-Log "Stopping Docker Driver"
-
-    Stop-ProcessIfExists -Session $Session -ProcessName "contrail-windows-docker"
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        Stop-Service docker | Out-Null
-
-        # Removing NAT objects when 'winnat' service is stopped may fail.
-        # In this case, we have to try removing all objects but ignore failures for some of them.
-        Get-NetNat | ForEach-Object {
-            Remove-NetNat $_.Name -Confirm:$false -ErrorAction SilentlyContinue
-        }
-
-        # Removing ContainerNetworks may fail for NAT network when 'winnat'
-        # service is disabled, so we have to filter out all NAT networks.
-        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -ErrorAction SilentlyContinue -Force
-        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -Force
-
-        Start-Service docker | Out-Null
-    }
-}
-
-function Test-IsDockerDriverProcessRunning {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
-    return Test-IsProcessRunning -Session $Session -ProcessName "contrail-windows-docker"
-}
-
 function Test-IsDockerDriverEnabled {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
 
@@ -324,24 +264,23 @@ function Initialize-DriverAndExtension {
         [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig
     )
 
-    Write-Log "Initializing Test Configuration"
+    Write-Log "Initializing CNMPlugin and Extension"
 
     $NRetries = 3;
     foreach ($i in 1..$NRetries) {
         Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.AdapterName
 
-        # DockerDriver automatically enables Extension
-        Start-DockerDriver -Session $Session `
-            -WaitTime 0
+        # CNMPlugin automatically enables Extension
+        Start-CNMPluginService -Session $Session
 
         try {
-            $TestProcessRunning = { Test-IsDockerDriverProcessRunning -Session $Session }
+            $TestCNMRunning = { Test-IsCNMPluginServiceRunning -Session $Session }
 
-            $TestProcessRunning | Invoke-UntilSucceeds -Duration 15
+            $TestCNMRunning | Invoke-UntilSucceeds -Duration 15
 
             {
-                if (-not (Invoke-Command $TestProcessRunning)) {
-                    throw [HardError]::new("docker process has stopped running")
+                if (-not (Invoke-Command $TestCNMRunning)) {
+                    throw [HardError]::new("CNM plugin service didn't start")
                 }
                 Test-IsDockerDriverEnabled -Session $Session
             } | Invoke-UntilSucceeds -Duration 600 -Interval 5
@@ -354,9 +293,9 @@ function Initialize-DriverAndExtension {
             Write-Log $_
 
             if ($i -eq $NRetries) {
-                throw "Docker driver was not enabled."
+                throw "CNM plugin was not enabled."
             } else {
-                Write-Log "Docker driver was not enabled, retrying."
+                Write-Log "CNM plugin was not enabled, retrying."
                 Clear-TestConfiguration -Session $Session -SystemConfig $SystemConfig
             }
         }
@@ -370,11 +309,11 @@ function Clear-TestConfiguration {
     Write-Log "Cleaning up test configuration"
 
     Write-Log "Agent service status: $( Get-AgentServiceStatus -Session $Session )"
-    Write-Log "Docker Driver status: $( Test-IsDockerDriverProcessRunning -Session $Session )"
+    Write-Log "CNMPlugin service status: $( Get-CNMPluginServiceStatus -Session $Session )"
 
     Remove-AllUnusedDockerNetworks -Session $Session
+    Stop-CNMPluginService -Session $Session
     Stop-AgentService -Session $Session
-    Stop-DockerDriver -Session $Session
     Disable-VRouterExtension -Session $Session -SystemConfig $SystemConfig
 
     Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.AdapterName

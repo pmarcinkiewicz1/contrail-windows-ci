@@ -94,12 +94,15 @@ function Install-DockerDriver {
 
     Write-Log "Installing Docker Driver"
     Invoke-MsiExec -Session $Session -Path "C:\Artifacts\docker-driver.msi"
+    New-CNMPluginService -Session $Session
 }
 
 function Uninstall-DockerDriver {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
 
     Write-Log "Uninstalling Docker Driver"
+
+    Remove-CNMPluginService -Session $Session
     Invoke-MsiExec -Uninstall -Session $Session -Path "C:\Artifacts\docker-driver.msi"
 }
 

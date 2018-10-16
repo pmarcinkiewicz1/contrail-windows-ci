@@ -67,7 +67,7 @@ function Stop-RemoteService {
     Write-Log "Stopping $ServiceName"
 
     Invoke-Command -Session $Session -ScriptBlock {
-        # Some tests call, which don't use all components, use Clear-TestConfiguration function.
+        # Some tests which don't use all components, use Clear-TestConfiguration function.
         # Ignoring errors here allows us to get rid of boilerplate code, which
         # would be needed to handle cases where not all services are present on testbed(s).
         Stop-Service $using:ServiceName -ErrorAction SilentlyContinue
@@ -109,8 +109,16 @@ function Get-AgentServiceName {
     return "contrail-vrouter-agent"
 }
 
+function Get-CNMPluginServiceName {
+    return "contrail-cnm-plugin"
+}
+
 function Get-AgentExecutablePath {
     return "C:\Program Files\Juniper Networks\agent\contrail-vrouter-agent.exe"
+}
+
+function Get-CNMPluginExecutablePath {
+    return "C:\Program Files\Juniper Networks\contrail-windows-docker.exe"
 }
 
 function Get-AgentServiceStatus {
@@ -119,6 +127,22 @@ function Get-AgentServiceStatus {
     )
 
     Get-ServiceStatus -Session $Session -ServiceName (Get-AgentServiceName)
+}
+
+function Get-CNMPluginServiceStatus {
+    Param (
+        [Parameter(Mandatory=$true)] $Session
+    )
+
+    Get-ServiceStatus -Session $Session -ServiceName $(Get-CNMPluginServiceName)
+}
+
+function Test-IsCNMPluginServiceRunning {
+    Param (
+        [Parameter(Mandatory=$true)] $Session
+    )
+
+    return $((Get-CNMPluginServiceStatus -Session $Session) -eq "Running")
 }
 
 function New-AgentService {
@@ -144,6 +168,31 @@ function New-AgentService {
         -LogPath $LogPath
 }
 
+function New-CNMPluginService {
+    Param (
+        [Parameter(Mandatory=$true)] $Session
+    )
+
+    $LogDir = Get-ComputeLogsDir
+    $LogPath = Join-Path $LogDir "contrail-cnm-plugin-service.log"
+
+    Invoke-Command -Session $Session -ScriptBlock {
+        New-Item -ItemType Directory -Force -Path $using:LogDir -ErrorAction SilentlyContinue | Out-Null
+    }
+
+    $ServiceName = Get-CNMPluginServiceName
+    $ExecutablePath = Get-CNMPluginExecutablePath
+
+    Install-ServiceWithNSSM -Session $Session `
+        -ServiceName $ServiceName `
+        -ExecutablePath $ExecutablePath `
+        -CommandLineParams @()
+
+    Out-StdoutAndStderrToLogFile -Session $Session `
+        -ServiceName $ServiceName `
+        -LogPath $LogPath
+}
+
 function Start-AgentService {
     Param (
         [Parameter(Mandatory=$true)] $Session
@@ -161,12 +210,66 @@ function Start-AgentService {
     Write-Log $Output.Output
 }
 
+function Start-CNMPluginService {
+    Param (
+        [Parameter(Mandatory=$true)] $Session
+    )
+
+    $ServiceName = Get-CNMPluginServiceName
+
+    Start-RemoteService -Session $Session -ServiceName $ServiceName
+}
+
+function Stop-CNMPluginService {
+    Param (
+        [Parameter(Mandatory=$true)] $Session
+    )
+
+    $ServiceName = Get-CNMPluginServiceName
+
+    Stop-RemoteService -Session $Session -ServiceName $ServiceName
+
+    Invoke-Command -Session $Session -ScriptBlock {
+        Stop-Service docker | Out-Null
+
+        # Removing NAT objects when 'winnat' service is stopped may fail.
+        # In this case, we have to try removing all objects but ignore failures for some of them.
+        Get-NetNat | ForEach-Object {
+            Remove-NetNat $_.Name -Confirm:$false -ErrorAction SilentlyContinue
+        }
+
+        # Removing ContainerNetworks may fail for NAT network when 'winnat'
+        # service is disabled, so we have to filter out all NAT networks.
+        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -ErrorAction SilentlyContinue -Force
+        # Workaround for flaky HNS behavior.
+        # Removing container networks sometimes ends with "Unspecified error".
+        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -Force
+
+        Start-Service docker | Out-Null
+    }
+}
+
 function Stop-AgentService {
     Param (
         [Parameter(Mandatory=$true)] $Session
     )
 
     Stop-RemoteService -Session $Session -ServiceName (Get-AgentServiceName)
+}
+
+function Remove-CNMPluginService {
+    Param (
+        [Parameter(Mandatory=$true)] $Session
+    )
+
+    $ServiceName = Get-CNMPluginServiceName
+    $ServiceStatus = Get-CNMPluginServiceStatus -Session $Session
+
+    if ($ServiceStatus -ne "Stopped") {
+        Stop-CNMPluginService -Session $Session
+    }
+
+    Remove-ServiceWithNSSM -Session $Session -ServiceName $ServiceName
 }
 
 function Remove-AgentService {
@@ -180,5 +283,6 @@ function Remove-AgentService {
     if ($ServiceStatus -ne "Stopped") {
         Stop-AgentService -Session $Session
     }
+
     Remove-ServiceWithNSSM -Session $Session -ServiceName $ServiceName
 }
