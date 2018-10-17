@@ -1,10 +1,5 @@
 ---
 
-- name: 'apt update && upgrade'
-  apt:
-    update_cache: yes
-    upgrade: safe
-
 
 - name: 'install apache'
   apt:
