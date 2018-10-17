@@ -245,6 +245,17 @@
     product_id: '{79750C81-714E-45F2-B5DE-42DEF00687B8}'
     arguments: /Quiet /NoWeb /InstallSelectableItems
 
+# build tools ship with old cl.exe, so we replace it with a newer one taken from visual studio
+- name: Remove old compiler
+  win_file:
+    path: 'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64'
+    state: absent
+
+- name: Unpack new compiler
+  win_unzip:
+    src: '{{ dependencies_source }}\visualcppbuildtools\compiler_update.zip'
+    dest: 'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin'
+
 - name: Set MSBUILD variable
   win_environment:
     state: present
