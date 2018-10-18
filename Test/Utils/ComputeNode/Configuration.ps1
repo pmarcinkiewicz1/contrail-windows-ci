@@ -1,14 +1,17 @@
 . $PSScriptRoot\..\..\..\CIScripts\Common\Init.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Common\Invoke-CommandWithFunctions.ps1
 
-# [Shelly-Bug] Shelly doesn't detect imported classes yet.
-. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1 # allow unused-imports
+. $PSScriptRoot\..\..\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\..\..\CIScripts\Testenv\Testbed.ps1
 
 . $PSScriptRoot\..\..\Utils\NetAdapterInfo\RemoteHost.ps1
 
 function Get-DefaultCNMPluginsConfigPath {
     return "C:\ProgramData\Contrail\etc\contrail\contrail-cnm-plugin.conf"
+}
+
+function Get-DefaultAgentConfigPath {
+    return "C:\ProgramData\Contrail\etc\contrail\contrail-vrouter-agent.conf"
 }
 
 function New-CNMPluginConfigFile {
@@ -19,7 +22,7 @@ function New-CNMPluginConfigFile {
         [Parameter(Mandatory = $true)] [ControllerConfig] $ControllerConfig
     )
     $ConfigPath = Get-DefaultCNMPluginsConfigPath
-    
+
     $Config = @"
 [DRIVER]
 Adapter=$AdapterName
@@ -145,6 +148,10 @@ platform=windows
 
 [CONTROL-NODE]
 servers=$ControllerIP
+
+[DNS]
+dns_client_port=53
+servers=$($ControllerIP):53
 
 [VIRTUAL-HOST-INTERFACE]
 name=$VHostIfName

@@ -55,7 +55,7 @@ Most likely, you'd want to check:
   Any failure in this stage is most likely a CI flakiness.
 
 The full documentation on Windows CI logs layout is available here:
-https://juniper.github.io/contrail-windows-docs/ci_admin_guide/Windows_CI_logs_layout/
+https://juniper.github.io/contrail-windows-docs/For%20developers/Interpreting%20CI%20logs/Windows_CI_logs_layout/
 EOF
 
 rm "$full_log"

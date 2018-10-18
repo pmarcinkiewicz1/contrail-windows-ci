@@ -1,16 +1,14 @@
 . $PSScriptRoot\..\CIScripts\Common\Invoke-UntilSucceeds.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-NativeCommand.ps1
 . $PSScriptRoot\..\CIScripts\Common\Invoke-CommandWithFunctions.ps1
-# [Shelly-Bug] Shelly doesn't detect imported classes yet.
-. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1 # allow unused-imports
+. $PSScriptRoot\..\CIScripts\Testenv\Testenv.ps1
 . $PSScriptRoot\..\CIScripts\Testenv\Testbed.ps1
 
 . $PSScriptRoot\Utils\ComputeNode\Configuration.ps1
+. $PSScriptRoot\Utils\ComputeNode\Service.ps1
 . $PSScriptRoot\Utils\DockerImageBuild.ps1
 . $PSScriptRoot\PesterLogger\PesterLogger.ps1
 
-$MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS = 60
-$TIME_BETWEEN_AGENT_CHECKS_IN_SECONDS = 2
 $AGENT_EXECUTABLE_PATH = "C:/Program Files/Juniper Networks/agent/contrail-vrouter-agent.exe"
 
 function Stop-ProcessIfExists {
@@ -137,66 +135,6 @@ function Test-IsVRouterExtensionEnabled {
     return $($Ext.Enabled -and $Ext.Running)
 }
 
-function Start-DockerDriver {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
-           [Parameter(Mandatory = $false)] [int] $WaitTime = 60)
-    Write-Log "Starting Docker Driver"
-
-    $LogDir = Get-ComputeLogsDir
-
-    Invoke-Command -Session $Session -ScriptBlock {
-
-        # Nested ScriptBlock variable passing workaround
-        $LogDir = $Using:LogDir
-
-        Start-Job -ScriptBlock {
-            Param($LogDir)
-
-            New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-            $LogPath = Join-Path $LogDir "contrail-cnm-plugin-std.log"
-            $ErrorActionPreference = "Continue"
-
-            # "Out-File -Append" in contrary to "Add-Content" doesn't require a read lock, so logs can
-            # be read while the process is running
-            & "C:\Program Files\Juniper Networks\contrail-windows-docker.exe" 2>&1 |
-                Out-File -Append -FilePath $LogPath
-        } -ArgumentList $LogDir
-    }
-
-    Start-Sleep -s $WaitTime
-}
-
-function Stop-DockerDriver {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
-    Write-Log "Stopping Docker Driver"
-
-    Stop-ProcessIfExists -Session $Session -ProcessName "contrail-windows-docker"
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        Stop-Service docker | Out-Null
-
-        # Removing NAT objects when 'winnat' service is stopped may fail.
-        # In this case, we have to try removing all objects but ignore failures for some of them.
-        Get-NetNat | ForEach-Object {
-            Remove-NetNat $_.Name -Confirm:$false -ErrorAction SilentlyContinue
-        }
-
-        # Removing ContainerNetworks may fail for NAT network when 'winnat'
-        # service is disabled, so we have to filter out all NAT networks.
-        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -ErrorAction SilentlyContinue -Force
-        Get-ContainerNetwork | Where-Object Name -NE nat | Remove-ContainerNetwork -Force
-
-        Start-Service docker | Out-Null
-    }
-}
-
-function Test-IsDockerDriverProcessRunning {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
-    return Test-IsProcessRunning -Session $Session -ProcessName "contrail-windows-docker"
-}
-
 function Test-IsDockerDriverEnabled {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
 
@@ -250,74 +188,13 @@ function Test-IfAgentCanLoadDLLs {
     }
 }
 
-function Enable-AgentService {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-    Write-Log "Starting Agent"
-
-    Test-IfAgentCanLoadDLLs -Session $Session
-
-    $Output = Invoke-NativeCommand -Session $Session -ScriptBlock {
-        $Output = netstat -abq  #dial tcp bug debug output
-        Start-Service ContrailAgent
-        return $Output
-    } -CaptureOutput
-    Write-Log $Output.Output
-}
-
-function Disable-AgentService {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
-    Write-Log "Stopping Agent"
-    Invoke-Command -Session $Session -ScriptBlock {
-        Stop-Service ContrailAgent -ErrorAction SilentlyContinue | Out-Null
-    }
-}
-
-function Get-AgentServiceStatus {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-
-    Invoke-Command -Session $Session -ScriptBlock {
-        $Service = Get-Service "ContrailAgent" -ErrorAction SilentlyContinue
-
-        if ($Service -and $Service.Status) {
-            return $Service.Status.ToString()
-        } else {
-            return $null
-        }
-    }
-}
-
-function Assert-IsAgentServiceEnabled {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-    $Status = Invoke-UntilSucceeds { Get-AgentServiceStatus -Session $Session } `
-            -Interval $TIME_BETWEEN_AGENT_CHECKS_IN_SECONDS `
-            -Duration $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS
-    if ($Status -eq "Running") {
-        return
-    } else {
-        throw "Agent service is not enabled. EXPECTED: Agent service is enabled"
-    }
-}
-
-function Assert-IsAgentServiceDisabled {
-    Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session)
-    $Status = Invoke-UntilSucceeds { Get-AgentServiceStatus -Session $Session } `
-            -Interval $TIME_BETWEEN_AGENT_CHECKS_IN_SECONDS `
-            -Duration $MAX_WAIT_TIME_FOR_AGENT_IN_SECONDS
-    if ($Status -eq "Stopped") {
-        return
-    } else {
-        throw "Agent service is not disabled. EXPECTED: Agent service is disabled"
-    }
-}
-
 function Read-SyslogForAgentCrash {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
            [Parameter(Mandatory = $true)] [DateTime] $After)
     Invoke-Command -Session $Session -ScriptBlock {
         Get-EventLog -LogName "System" -EntryType "Error" `
             -Source "Service Control Manager" `
-            -Message "The ContrailAgent service terminated unexpectedly*" `
+            -Message "The contrail-vrouter-agent service terminated unexpectedly*" `
             -After ($Using:After).addSeconds(-1)
     }
 }
@@ -387,24 +264,23 @@ function Initialize-DriverAndExtension {
         [Parameter(Mandatory = $true)] [SystemConfig] $SystemConfig
     )
 
-    Write-Log "Initializing Test Configuration"
+    Write-Log "Initializing CNMPlugin and Extension"
 
     $NRetries = 3;
     foreach ($i in 1..$NRetries) {
         Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.AdapterName
 
-        # DockerDriver automatically enables Extension
-        Start-DockerDriver -Session $Session `
-            -WaitTime 0
+        # CNMPlugin automatically enables Extension
+        Start-CNMPluginService -Session $Session
 
         try {
-            $TestProcessRunning = { Test-IsDockerDriverProcessRunning -Session $Session }
+            $TestCNMRunning = { Test-IsCNMPluginServiceRunning -Session $Session }
 
-            $TestProcessRunning | Invoke-UntilSucceeds -Duration 15
+            $TestCNMRunning | Invoke-UntilSucceeds -Duration 15
 
             {
-                if (-not (Invoke-Command $TestProcessRunning)) {
-                    throw [HardError]::new("docker process has stopped running")
+                if (-not (Invoke-Command $TestCNMRunning)) {
+                    throw [HardError]::new("CNM plugin service didn't start")
                 }
                 Test-IsDockerDriverEnabled -Session $Session
             } | Invoke-UntilSucceeds -Duration 600 -Interval 5
@@ -417,9 +293,9 @@ function Initialize-DriverAndExtension {
             Write-Log $_
 
             if ($i -eq $NRetries) {
-                throw "Docker driver was not enabled."
+                throw "CNM plugin was not enabled."
             } else {
-                Write-Log "Docker driver was not enabled, retrying."
+                Write-Log "CNM plugin was not enabled, retrying."
                 Clear-TestConfiguration -Session $Session -SystemConfig $SystemConfig
             }
         }
@@ -433,11 +309,11 @@ function Clear-TestConfiguration {
     Write-Log "Cleaning up test configuration"
 
     Write-Log "Agent service status: $( Get-AgentServiceStatus -Session $Session )"
-    Write-Log "Docker Driver status: $( Test-IsDockerDriverProcessRunning -Session $Session )"
+    Write-Log "CNMPlugin service status: $( Get-CNMPluginServiceStatus -Session $Session )"
 
     Remove-AllUnusedDockerNetworks -Session $Session
-    Disable-AgentService -Session $Session
-    Stop-DockerDriver -Session $Session
+    Stop-CNMPluginService -Session $Session
+    Stop-AgentService -Session $Session
     Disable-VRouterExtension -Session $Session -SystemConfig $SystemConfig
 
     Wait-RemoteInterfaceIP -Session $Session -AdapterName $SystemConfig.AdapterName
@@ -462,7 +338,7 @@ function Initialize-ComputeServices {
             -ControllerConfig $ControllerConfig `
             -SystemConfig $SystemConfig
 
-        Enable-AgentService -Session $Session
+        Start-AgentService -Session $Session
 }
 
 function Remove-DockerNetwork {

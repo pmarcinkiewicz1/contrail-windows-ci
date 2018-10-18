@@ -112,7 +112,7 @@ Describe "Single compute node protocol tests with utils" {
             "ContrailNetwork",
             Justification="It's used in AfterEach. Perhaps https://github.com/PowerShell/PSScriptAnalyzer/issues/804"
         )]
-        $ContrailNetwork = $ContrailNM.AddNetwork($null, $NetworkName, $Subnet)
+        $ContrailNetwork = $ContrailNM.AddOrReplaceNetwork($null, $NetworkName, $Subnet)
 
         New-CNMPluginConfigFile -Session $Session `
             -AdapterName $SystemConfig.AdapterName `

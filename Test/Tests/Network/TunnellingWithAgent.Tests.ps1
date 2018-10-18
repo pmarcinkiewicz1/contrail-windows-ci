@@ -215,7 +215,7 @@ Test-WithRetries 3 {
                 "ContrailNetwork",
                 Justification="It's actually used."
             )]
-            $ContrailNetwork = $MultiNode.NM.AddNetwork($null, $Network.Name, $Subnet)
+            $ContrailNetwork = $MultiNode.NM.AddOrReplaceNetwork($null, $Network.Name, $Subnet)
 
             Initialize-ComputeNode -Session $MultiNode.Sessions[0] -Networks @($Network) -Configs $MultiNode.Configs
             Initialize-ComputeNode -Session $MultiNode.Sessions[1] -Networks @($Network) -Configs $MultiNode.Configs

@@ -48,7 +48,8 @@ function Invoke-ContainersBuild {
     $Job.Step("add insecure registry", {
         $DockerConfig = @"
 {
-    "insecure-registries" : [ "$Registry" ]
+    "insecure-registries" : [ "$Registry" ],
+    "allow-nondistributable-artifacts" : [ "$Registry" ]
 }
 "@
         Set-Content -Path "C:\ProgramData\Docker\config\daemon.json" -Value $DockerConfig

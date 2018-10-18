@@ -26,6 +26,7 @@ pipelines:
             - ^stable/queens$
             - ^stable/newton$
             - ^stable/ocata$
+            - ^production
         - event: change-restored
           branch:
             - ^master$
@@ -41,6 +42,7 @@ pipelines:
             - ^stable/queens$
             - ^stable/newton$
             - ^stable/ocata$
+            - ^production
         - event: comment-added
           branch:
             - ^master$
@@ -56,6 +58,7 @@ pipelines:
             - ^stable/queens$
             - ^stable/newton$
             - ^stable/ocata$
+            - ^production 
           comment: (?i)recheck(( (?:bug|lp)[\s#:]*(\d+))|( no bug))?(\s+clean)?\s*$
           reject-approval:
             - username: codilime-ci
@@ -355,8 +358,20 @@ projects:
   - name: Juniper/vijava
     template:
       - name: ci-contrail-windows-other-projects-template
+      
+  - name: Juniper/contrail-go-api
+    template:
+      - name: ci-contrail-windows-other-projects-template
+    
+  - name: Juniper/contrail-infra
+    template:
+      - name: ci-contrail-windows-other-projects-template
 
   - name: tungstenfabric/contrail-ci-test
+    template:
+      - name: ci-contrail-windows-other-projects-template
+     
+  - name: tungstenfabric/docs
     template:
       - name: ci-contrail-windows-other-projects-template
 
