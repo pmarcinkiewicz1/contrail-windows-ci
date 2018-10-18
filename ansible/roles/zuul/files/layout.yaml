@@ -364,7 +364,7 @@ projects:
       - name: ci-contrail-windows-other-projects-template
     
   - name: Juniper/contrail-infra
-     template:
+    template:
       - name: ci-contrail-windows-other-projects-template
 
   - name: tungstenfabric/contrail-ci-test
