@@ -62,7 +62,11 @@ must be present on testbeds. These DLLs are:
 * ucrtbased.dll
 * vcruntime140d.dll
 
-They are distributed along with Visual Studio and MSBuild.
+MSVC 2015 debug DLLs can be obtained by installing Visual Studio 2015. After installing Visual Studio they should be located in:
+
+mscvp140d.dll and vcruntime140d.dll - C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\redist\debug_nonredist\x64\Microsoft.VC140.DebugCRT,
+
+ucrtbased.dll - C:\Program Files (x86)\Windows Kits\10\bin\x64\ucrt
 
 To copy them to remote Windows testbeds, use:
 ```
@@ -74,6 +78,23 @@ ansible -i inventory --vault-password-file ~/ansible-vault-key testbed -m win_co
 
 
 ## Test suite prerequisites
+
+### On test beds
+
+1. Download python library package into correct folder:
+
+```
+New-Item -ItemType directory -Path C:\DockerFiles\python-dns -Force
+pip download dnslib==0.9.7 --dest C:\DockerFiles\python-dns
+```
+1. Install python libraries used by tests:
+
+```
+pip install dnslib==0.9.7
+pip install pathlib==1.0.1
+```
+
+### On testing machine
 
 1. Install Pester:
 
@@ -107,7 +128,7 @@ Invoke-Pester -Script @{ Path = ".\TunnellingWithAgent.Tests.ps1"; Parameters = 
 
 ## Debugging the tests
 
-### Visual Studio Code 
+### Visual Studio Code
 
 1. Install ms-vscode.powershell plugin
 1. Open test file you want to debug.
