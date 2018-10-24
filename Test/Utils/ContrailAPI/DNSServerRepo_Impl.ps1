@@ -18,6 +18,11 @@ class DNSServerRepo {
             external_visible            = $DNSServer.ExternalVisible
             reverse_resolution          = $DNSServer.ReverseResolution
         }
+        if($DNSServer.NextDNSServer) {
+            $VirtualDNS += @{
+                next_virtual_DNS = $DNSServer.NextDNSServer
+            }
+        }
 
         $Request = @{
             "virtual-DNS" = @{

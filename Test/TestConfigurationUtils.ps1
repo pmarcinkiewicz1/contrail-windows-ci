@@ -356,7 +356,8 @@ function New-Container {
     Param ([Parameter(Mandatory = $true)] [PSSessionT] $Session,
            [Parameter(Mandatory = $true)] [string] $NetworkName,
            [Parameter(Mandatory = $false)] [string] $Name,
-           [Parameter(Mandatory = $false)] [string] $Image = "microsoft/nanoserver")
+           [Parameter(Mandatory = $false)] [string] $Image = "microsoft/nanoserver",
+           [Parameter(Mandatory = $false)] [string] $IP)
 
     if (Test-Dockerfile $Image) {
         Initialize-DockerImage -Session $Session -DockerImageName $Image | Out-Null
@@ -364,6 +365,7 @@ function New-Container {
 
     $Arguments = "run", "-di"
     if ($Name) { $Arguments += "--name", $Name }
+    if ($IP) { $Arguments += "--ip", $IP }
     $Arguments += "--network", $NetworkName, $Image
 
     $Result = Invoke-NativeCommand -Session $Session -CaptureOutput -AllowNonZero { docker @Using:Arguments }

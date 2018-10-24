@@ -6,6 +6,7 @@ class DNSServer {
     [boolean] $ExternalVisible = $false;
     [boolean] $ReverseResolution = $false;
     [string] $Uuid;
+    [string] $NextDNSServer = $null;
 
     [ValidateSet("fixed","random","round-robin")]
     [string] $RecordOrder = "random";
