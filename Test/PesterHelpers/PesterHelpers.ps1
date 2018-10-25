@@ -121,3 +121,63 @@ function Test-ResultsWithRetries {
 
     return $true
 }
+
+function Suspend-PesterOnException {
+    InModuleScope Pester {
+        function global:My-InvokeTest {
+            [CmdletBinding(DefaultParameterSetName = 'Normal')]
+            param (
+                [Parameter(Mandatory = $true)]
+                [string] $Name,
+
+                [Parameter(Mandatory = $true)]
+                [ScriptBlock] $ScriptBlock,
+
+                [scriptblock] $OutputScriptBlock,
+
+                [System.Collections.IDictionary] $Parameters,
+                [string] $ParameterizedSuiteName,
+
+                [Parameter(ParameterSetName = 'Pending')]
+                [Switch] $Pending,
+
+                [Parameter(ParameterSetName = 'Skip')]
+                [Alias('Ignore')] [Switch] $Skip
+            )
+
+            if ($null -eq $Parameters) { $Parameters = @{} }
+
+            try {
+                if ($Skip) { $Pester.AddTestResult($Name, "Skipped", $null) }
+                elseif ($Pending) { $Pester.AddTestResult($Name, "Pending", $null) }
+                else {
+                    $errorRecord = $null
+                    try {
+                        $pester.EnterTest()
+                        Invoke-TestCaseSetupBlocks
+                        do { $null = & $ScriptBlock @Parameters } until ($true)
+                    }
+                    catch {
+                        Write-Host "It failed, press any key to continue..." -ForegroundColor Red
+                        [console]::beep(440,1000)
+                        Read-Host
+                        $errorRecord = $_
+                    }
+                    finally {
+                        try { Invoke-TestCaseTeardownBlocks }
+                        catch { $errorRecord = $_ }
+                        $pester.LeaveTest()
+                    }
+                    $result = ConvertTo-PesterResult -Name $Name -ErrorRecord $errorRecord
+                    $orderedParameters = Get-OrderedParameterDictionary -ScriptBlock $ScriptBlock -Dictionary $Parameters
+                    $Pester.AddTestResult( $result.name, $result.Result, $null, $result.FailureMessage, $result.StackTrace, $ParameterizedSuiteName, $orderedParameters, $result.ErrorRecord )
+                }
+            }
+            finally { Exit-MockScope -ExitTestCaseOnly }
+
+            if ($null -ne $OutputScriptBlock) { $Pester.testresult[-1] | & $OutputScriptBlock }
+        }
+
+        New-Alias -Name 'Invoke-Test' -Value 'My-InvokeTest' -Scope Global -ErrorAction Ignore
+    }
+}

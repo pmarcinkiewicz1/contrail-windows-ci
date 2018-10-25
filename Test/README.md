@@ -155,66 +155,19 @@ If you need to pause execution of tests on any exception that is thrown inside '
 Set-PSBreakpoint -Script 'C:\Program Files\WindowsPowerShell\Modules\Pester\4.2.0\Functions\It.ps1' -Line 278
 ```
 
-1. Override pester function to pause and ask for pressing any key to continue:
+1. Call Suspend-PesterOnException (no parameters) at the beggining of the test script.
+It is defined in PesterHelpers\PesterHelpers.ps1.
+Whole snippet may look like this:
 
-``` {.line-numbers}
-InModuleScope Pester {
-    function global:My-InvokeTest {
-        [CmdletBinding(DefaultParameterSetName = 'Normal')]
-        param (
-            [Parameter(Mandatory = $true)]
-            [string] $Name,
-
-            [Parameter(Mandatory = $true)]
-            [ScriptBlock] $ScriptBlock,
-
-            [scriptblock] $OutputScriptBlock,
-
-            [System.Collections.IDictionary] $Parameters,
-            [string] $ParameterizedSuiteName,
-
-            [Parameter(ParameterSetName = 'Pending')]
-            [Switch] $Pending,
-
-            [Parameter(ParameterSetName = 'Skip')]
-            [Alias('Ignore')] [Switch] $Skip
-        )
-
-        if ($null -eq $Parameters) { $Parameters = @{} }
-
-        try {
-            if ($Skip) { $Pester.AddTestResult($Name, "Skipped", $null) }
-            elseif ($Pending) { $Pester.AddTestResult($Name, "Pending", $null) }
-            else {
-                $errorRecord = $null
-                try {
-                    $pester.EnterTest()
-                    Invoke-TestCaseSetupBlocks
-                    do { $null = & $ScriptBlock @Parameters } until ($true)
-                }
-                catch {
-                    Write-Host "It failed, press any key to continue..." -ForegroundColor Red
-                    [console]::beep(440,1000)
-                    Read-Host
-                    $errorRecord = $_
-                }
-                finally {
-                    try { Invoke-TestCaseTeardownBlocks }
-                    catch { $errorRecord = $_ }
-                    $pester.LeaveTest()
-                }
-                $result = ConvertTo-PesterResult -Name $Name -ErrorRecord $errorRecord
-                $orderedParameters = Get-OrderedParameterDictionary -ScriptBlock $ScriptBlock -Dictionary $Parameters
-                $Pester.AddTestResult( $result.name, $result.Result, $null, $result.FailureMessage, $result.StackTrace, $ParameterizedSuiteName, $orderedParameters, $result.ErrorRecord )
-            }
-        }
-        finally { Exit-MockScope -ExitTestCaseOnly }
-
-        if ($null -ne $OutputScriptBlock) { $Pester.testresult[-1] | & $OutputScriptBlock }
-    }
-
-    New-Alias -Name 'Invoke-Test' -Value 'My-InvokeTest' -Scope Global -ErrorAction Ignore
+```
+if($PSScriptRoot -match "(.*?contrail-windows-ci).*") {
+    $RepositoryRootPath = $Matches[1]
 }
+else { throw "Cannot determine repository root path" }
+
+. $RepositoryRootPath\Test\PesterHelpers\PesterHelpers.ps1
+
+Suspend-PesterOnException
 ```
 
 ## Manual cleanup of resource in Controller
