@@ -157,6 +157,7 @@ Set-PSBreakpoint -Script 'C:\Program Files\WindowsPowerShell\Modules\Pester\4.2.
 
 1. Call Suspend-PesterOnException (no parameters) at the beggining of the test script.
 It is defined in `PesterHelpers\PesterHelpers.ps1`.
+To resume script execution just press any key.
 Whole snippet may look like this:
 
 ```
