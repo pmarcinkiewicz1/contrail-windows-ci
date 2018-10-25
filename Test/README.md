@@ -147,7 +147,7 @@ Note: if PowerShell session crashes, try `Ctrl`+`Shift`+`P` -> `Powershell: Rest
 
 ### Pausing tests on any exception
 
-If you need to pause execution of tests at any exception that is thrown inside It block, you can make it in two ways.
+If you need to pause execution of tests on any exception that is thrown inside 'It' block, you can make it in two ways.
 
 1. Add a breakpoint in pester function:
 
@@ -155,7 +155,7 @@ If you need to pause execution of tests at any exception that is thrown inside I
 Set-PSBreakpoint -Script 'C:\Program Files\WindowsPowerShell\Modules\Pester\4.2.0\Functions\It.ps1' -Line 278
 ```
 
-1. Override pester function to stop and ask for pressing any key:
+1. Override pester function to pause and ask for pressing any key to continue:
 
 ``` {.line-numbers}
 InModuleScope Pester {
