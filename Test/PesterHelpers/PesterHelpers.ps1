@@ -124,7 +124,7 @@ function Test-ResultsWithRetries {
 
 function Suspend-PesterOnException {
     InModuleScope Pester {
-        function global:My-InvokeTest {
+        function global:InvokeTest_Changed {
             [CmdletBinding(DefaultParameterSetName = 'Normal')]
             param (
                 [Parameter(Mandatory = $true)]
@@ -178,6 +178,6 @@ function Suspend-PesterOnException {
             if ($null -ne $OutputScriptBlock) { $Pester.testresult[-1] | & $OutputScriptBlock }
         }
 
-        New-Alias -Name 'Invoke-Test' -Value 'My-InvokeTest' -Scope Global -ErrorAction Ignore
+        New-Alias -Name 'Invoke-Test' -Value 'InvokeTest_Changed' -Scope Global -ErrorAction Ignore
     }
 }
