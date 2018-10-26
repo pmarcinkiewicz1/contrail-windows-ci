@@ -163,7 +163,7 @@ pipeline {
 
                 stage('Testenv provisioning') {
                     agent { label 'ansible' }
-                    when { environment name: "DONT_CREATE_TESTBEDS", value: null }
+                    when { environment name: "NIGHTLY_BUILD", value: null }
 
                     environment {
                         TESTBED = credentials('win-testbed')
@@ -219,7 +219,7 @@ pipeline {
 
         stage('Deploy') {
             agent { label 'tester' }
-            when { environment name: "DONT_CREATE_TESTBEDS", value: null }
+            when { environment name: "NIGHTLY_BUILD", value: null }
             steps {
                 deleteDir()
 
@@ -235,9 +235,7 @@ pipeline {
 
         stage('Test') {
             agent { label 'tester' }
-            when { environment name: "DONT_CREATE_TESTBEDS", value: null;
-                   environment name: "NIGHTLY_BUILD", value: null
-                 }
+            when { environment name: "NIGHTLY_BUILD", value: null }
             steps {
                 deleteDir()
                 unstash 'CIScripts'
