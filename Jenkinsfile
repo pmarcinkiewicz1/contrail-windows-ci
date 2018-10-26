@@ -177,7 +177,9 @@ pipeline {
                     steps {
                         script {
                             def testNetwork = getLockedNetworkName()
+                            echo testNetwork
                             def testEnvName = getTestEnvName(testNetwork)
+                            echo testEnvName
                             def destroyConfig = [
                                 testenv_name: testEnvName,
                                 testenv_folder: env.TESTENV_FOLDER
