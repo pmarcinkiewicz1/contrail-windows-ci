@@ -130,3 +130,10 @@
   win_chocolatey:
     name: nssm
     state: present
+
+- name: Downloading python libs for DNS server
+  win_shell: |
+    New-Item -ItemType directory -Path C:\DockerFiles\python-dns -Force
+    pip download dnslib==0.9.7 --dest C:\DockerFiles\python-dns
+    pip install C:\DockerFiles\python-dns\dnslib-0.9.7.tar.gz
+    pip install pathlib==1.0.1

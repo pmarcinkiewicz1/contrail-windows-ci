@@ -25,8 +25,8 @@ function Install-ServiceWithNSSM {
     else {
         $ExceptionMessage = @"
 Unknown (wild) error appeared while creating $ServiceName service.
-ExitCode: $Output.ExitCode
-NSSM output: $Output.Output
+ExitCode: $($Output.ExitCode)
+NSSM output: $($Output.Output)
 "@
         throw [HardError]::new($ExceptionMessage)
     }
